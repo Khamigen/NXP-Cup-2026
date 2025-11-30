@@ -1,0 +1,110 @@
+/*
+ * Pixy2_Lane_Tracking.c
+ *
+ *  Created on: 29 Nov 2025
+ *      Author: j6895
+ */
+#include <popcycle/Pixy2_LaneTracking.h>
+#include <Pixy/Pixy2SPI_SS.h>
+extern "C"{
+#include "Modules/mTimer.h"
+}
+
+#define MA_WINDOW_SIZE 5 // window used for moving average
+
+//static because these are "state" saved from last loop. shouldn't be reset during each loop.
+// moving average
+static float errorBuffer[MA_WINDOW_SIZE];
+static int bufferIndex = 0;
+static int bufferCount = 0;
+
+// Proportional–Derivative Controller
+static float lastAvgError = 0.0f;
+const float Kd = 0.003f;	//derivative, bigger kd, faster steer
+const float Kp = -0.05f;	//proportion, bigger kp, bigger steer
+
+// Limit maximum steer
+const float steerMax = 0.6f;
+
+// Limit steering rate
+static float lastSteer = 0.0f;
+const float steerStepLimit = 0.03f;
+
+// missed Vector
+static int lastLaneCenterX = 39;
+static int lastHadTwoLines = 0;
+
+float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
+	int laneCenterX;
+	pixy.line.getAllFeatures(LINE_VECTOR, 1);
+	// if detects more than 2 vectors, calculate the center
+	if(pixy.line.numVectors >= 2)
+	    {
+			lastHadTwoLines = 1;
+	        // Determine left and right lines
+	        auto v1 = pixy.line.vectors[0];
+	        auto v2 = pixy.line.vectors[1];
+
+	        // calculate the middle x coordinate with the start and end point x coordinates
+	        int mid1 = (v1.m_x0 + v1.m_x1)/2;
+	        int mid2 = (v2.m_x0 + v2.m_x1)/2;
+
+	        //compare mid1 and mid2, the smaller one is leftX and the bigger one is rightX
+	        int leftX = (mid1 < mid2) ? mid1 : mid2;
+	        int rightX = (mid1 < mid2) ? mid2 : mid1;
+
+	        laneCenterX = (leftX + rightX)/2;
+	        lastLaneCenterX = laneCenterX;
+	    }
+	// only detects less then 2 vector
+	else{
+		if (lastHadTwoLines)
+			// if vector isn't lost for long, use previous lane center
+			{laneCenterX = lastLaneCenterX;}
+		// If lost for too long, set flag
+		lastHadTwoLines = 0;
+	}
+
+	// error calculation
+	int frameCenterX = 39; // Pixy2 line mode width / 2
+	float error = (float)(laneCenterX - frameCenterX);
+
+    // Moving Average
+	//add error to the buffer array
+    errorBuffer[bufferIndex] = error;
+    //bufferIndex point to next element, use modulo to loop to element0 if window size is reached
+    bufferIndex = (bufferIndex + 1) % MA_WINDOW_SIZE;
+
+    if(bufferCount < MA_WINDOW_SIZE)
+        {bufferCount++;}
+
+    float sum = 0;
+    for(int i=0; i<bufferCount; i++)
+        {sum += errorBuffer[i];}
+
+    float avgError = sum / bufferCount;
+
+    //PD Controller, kp and kd defined as constant
+    float dError = avgError - lastAvgError;
+    lastAvgError = avgError;
+
+    float steer = Kp * avgError + Kd * dError;
+
+    // Limit the maximum range of steer, steerMax defined as constant
+    if(steer > steerMax) steer = steerMax;
+    if(steer < -steerMax) steer = -steerMax;
+
+    // Limit turn rate. steerStepLimit defined as constant
+    float delta = steer - lastSteer;
+    if(delta > steerStepLimit)
+        {steer = lastSteer + steerStepLimit;}
+    else if(delta < -steerStepLimit)
+        {steer = lastSteer - steerStepLimit;}
+
+    lastSteer = steer;
+
+    return steer;
+
+}
+
+
