@@ -1,0 +1,7 @@
+# Debug Folder
+Debug/
+
+# Wir glauben dass diese Datei der Grund ist wieso man das dann nach den pullen nicht bauen kann
+# .cproject
+
+.settings/language.settings.xml
