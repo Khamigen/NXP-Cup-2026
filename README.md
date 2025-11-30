@@ -4,8 +4,11 @@
 
 >Using straight forward branching strategy: Main, Develop, feature/, bugfix/, etc.
 
-Branch: 	Main 	-> Most currenct Version running on Car
-		Develop -> Staging Branch for bringing together feature-branches
+Branch-Naming: 	
+		
+		main 	-> Most currenct Version running on Car
+		
+		develop -> Staging Branch for bringing together feature-branches
 		
 		feature/<featureName>	-> Branch working on specific feature
 		
