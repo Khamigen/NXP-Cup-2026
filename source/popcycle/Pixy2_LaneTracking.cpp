@@ -4,8 +4,8 @@
  *  Created on: 29 Nov 2025
  *      Author: j6895
  */
-#include <popcycle/Pixy2_LaneTracking.h>
 #include <Pixy/Pixy2SPI_SS.h>
+#include <Popcycle/Pixy2_LaneTracking.h>
 extern "C"{
 #include "Modules/mTimer.h"
 }
@@ -20,8 +20,8 @@ static int bufferCount = 0;
 
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
-const float Kd = 0.003f;	//derivative, bigger kd, faster steer
-const float Kp = -0.05f;	//proportion, bigger kp, bigger steer
+const float kD = 0.003f;	//derivative, bigger kd, faster steer
+const float kP = -0.05f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
 const float steerMax = 0.6f;
@@ -84,11 +84,11 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 
     float avgError = sum / bufferCount;
 
-    //PD Controller, kp and kd defined as constant
+    //PD Controller, kP and kD defined as constant
     float dError = avgError - lastAvgError;
     lastAvgError = avgError;
 
-    float steer = Kp * avgError + Kd * dError;
+    float steer = kP * avgError + kD * dError;
 
     // Limit the maximum range of steer, steerMax defined as constant
     if(steer > steerMax) steer = steerMax;
