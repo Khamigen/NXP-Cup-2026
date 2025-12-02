@@ -1,0 +1,7 @@
+ExitOnError 1
+r
+h
+loadfile "C:\Users\j6895\Documents\MCUXpressoIDE_25.6.136\workspace\NXPCUP_c++\Debug\NXPCUP_c++.hex" 0x0 
+qc
+
+qc
