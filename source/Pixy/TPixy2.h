@@ -242,7 +242,7 @@ int16_t TPixy2<LinkType>::getSync()
 #endif
         return PIXY_RESULT_ERROR;
       }
-      //usleep(25);
+      usleep(25);
 
       j++;
       i = 0;

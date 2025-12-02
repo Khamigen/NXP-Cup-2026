@@ -245,7 +245,7 @@ int8_t Pixy2Line<LinkType>::getFeatures(uint8_t type, uint8_t features, bool wai
 
     // If we're waiting for frame data, don't thrash Pixy with requests.
     // We can give up half a millisecond of latency (worst case)
-    //usleep(500);
+    usleep(500);
   }
 }
 
