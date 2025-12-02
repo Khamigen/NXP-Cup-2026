@@ -20,15 +20,15 @@ static int bufferCount = 0;
 
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
-const float kD = 0.003f;	//derivative, bigger kd, faster steer
-const float kP = -0.05f;	//proportion, bigger kp, bigger steer
+const float kD = 0.006f;	//derivative, bigger kd, faster steer
+const float kP = -0.07f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
 const float steerMax = 0.6f;
 
 // Limit steering rate
 static float lastSteer = 0.0f;
-const float steerStepLimit = 0.03f;
+const float steerStepLimit = 0.05f;
 
 // missed Vector
 static int lastLaneCenterX = 39;
