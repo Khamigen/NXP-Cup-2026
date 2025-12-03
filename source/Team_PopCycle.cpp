@@ -1,5 +1,6 @@
+
 /*
- * Copyright 2003-20xx Haute �cole ARC Ing�ni�rie, Switzerland. 
+ * Copyright 2003-20xx Haute �cole ARC Ing�ni�rie, Switzerland.
  * Copyright 2016-2019 NXP
  * All rights reserved.
  *
@@ -65,8 +66,8 @@ extern "C"
 #include "Applications/gOutput.h"
 }
 // popcycle header
-#include <popcycle/Pixy2_LaneTracking.h>
-#include <popcycle/Motor_Control.h>
+#include <Popcycle/Pixy2_LaneTracking.h>
+#include <Popcycle/Motor_Control.h>
 
 /* Pixy 2 */
 #include "Pixy/Pixy2SPI_SS.h"
@@ -196,7 +197,7 @@ int main(void)
 	SDK_DelayAtLeastUs(15000000, SystemCoreClock); //
 	mTimer_SetServoDuty(1, -0.4);*/
 	Motor_Init();
-	Motor_SetSpeed(-0.4);
+
 
 	//mTimer_SetServoDuty(0, 0.6);
 	//mTimer_SetServoDuty(0, -0.6);
@@ -281,7 +282,8 @@ int main(void)
 		}
 */
 		float steer = Pixy2_LaneTracking(pixy);
-		if(pixy.line.numVectors >= 2)
+		mTimer_SetServoDuty(0,steer);
+		/*if(pixy.line.numVectors >= 2)
 		    {
 		        // Determine left and right lines
 		        auto v1 = pixy.line.vectors[0];
@@ -307,7 +309,7 @@ int main(void)
 		        // Send error to servo / motor control
 		        mTimer_SetServoDuty(0, lenkung); // example proportional control
 
-		    }
+		    }*/
 /* Temporally comment everything beneath
 		//--------------------------------------------------------------------
 		// Depending on the position of the switch 1 we go from the test state (if = 1, see below) to the automatic state.
