@@ -31,42 +31,51 @@ static float lastSteer = 0.0f;
 const float steerStepLimit = 0.05f;
 
 // missed Vector
-static int lastLaneCenterX = 39;
+static int lastLaneCenterX = 157; //middle of video width
 static int lastHadTwoLines = 0;
 
+const int ySamplingCoordinate = 120; //can be adjusted
+const int brightnessDifferenceThreshhold = 60; //needs to be adjusted
+static uint8_t previousBrightness = 255;
+
 float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
+	int xSamplingCoordinate = lastLaneCenterX; //starts in the middle of the frame
 	int laneCenterX;
-	pixy.line.getAllFeatures(LINE_VECTOR, 1);
-	// if detects more than 2 vectors, calculate the center
-	if(pixy.line.numVectors >= 2)
-	    {
-			lastHadTwoLines = 1;
-	        // Determine left and right lines
-	        auto v1 = pixy.line.vectors[0];
-	        auto v2 = pixy.line.vectors[1];
+	uint8_t r, g,b;
+	uint8_t currentBrightness = 0;
+	int rightOuterLinePosition, leftOuterLinePosition;
 
-	        // calculate the middle x coordinate with the start and end point x coordinates
-	        int mid1 = (v1.m_x0 + v1.m_x1)/2;
-	        int mid2 = (v2.m_x0 + v2.m_x1)/2;
-
-	        //compare mid1 and mid2, the smaller one is leftX and the bigger one is rightX
-	        int leftX = (mid1 < mid2) ? mid1 : mid2;
-	        int rightX = (mid1 < mid2) ? mid2 : mid1;
-
-	        laneCenterX = (leftX + rightX)/2;
-	        lastLaneCenterX = laneCenterX;
-	    }
-	// only detects less then 2 vector
-	else{
-		if (lastHadTwoLines)
-			// if vector isn't lost for long, use previous lane center
-			{laneCenterX = lastLaneCenterX;}
-		// If lost for too long, set flag
-		lastHadTwoLines = 0;
+	//finding right xPos of lane
+	while(xSamplingCoordinate < 315){
+		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
+		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		if(abs(previousBrightness - currentBrightness) >= brightnessDifferenceThreshhold){
+			rightOuterLinePosition = xSamplingCoordinate;
+			xSamplingCoordinate = 315;
+		}
+		previousBrightness = currentBrightness;
+		xSamplingCoordinate += 4; //jumps for pixels //can be adjusted //maybe define pixelSampleOffset
 	}
 
+	xSamplingCoordinate = 157;
+	previousBrightness = 255;
+
+	//finding left xPos of lane
+	while (xSamplingCoordinate > 0){
+		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
+		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		if(abs(previousBrightness - currentBrightness) >= brightnessDifferenceThreshhold){
+					leftOuterLinePosition = xSamplingCoordinate;
+					xSamplingCoordinate = 0;
+		}
+		previousBrightness = currentBrightness;
+		xSamplingCoordinate -= 4;
+	}
+
+	//calculating laneCenter based on assumptions that it is exactly between to outer lines
+	laneCenterX = rightOuterLinePosition - leftOuterLinePosition;
 	// error calculation
-	int frameCenterX = 39; // Pixy2 line mode width / 2
+	int frameCenterX = 157; // Pixy video mode width / 2
 	float error = (float)(laneCenterX - frameCenterX);
 
     // Moving Average
