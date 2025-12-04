@@ -12,7 +12,7 @@ extern "C"{
 #include "Modules/mTimer.h"
 }
 
-#define MA_WINDOW_SIZE 10 // window used for moving average
+#define MA_WINDOW_SIZE 5 // window used for moving average
 
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
@@ -44,6 +44,30 @@ const int stabilityFrames = 3;    // 要連續多少幀才接受估值
 
 bool twoLinesValid;
 
+float singleLineCenterX(const Vector &v)
+{
+    float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
+
+    int mid = (v.m_x0 + v.m_x1) / 2;
+
+    bool rightTurn = (angle > 20);   // 線偏向右 → 車道右彎
+    bool leftTurn  = (angle < -20);  // 線偏向左 → 車道左彎
+
+    // case 1: 線偏右 → 右彎 → 假設看到的是外側左線
+    if(rightTurn)
+        return mid + laneHalfWidthPx;
+
+    // case 2: 線偏左 → 左彎 → 假設看到的是外側右線
+    if(leftTurn)
+        return mid - laneHalfWidthPx;
+
+    // case 3: angle 接近 0 → 直線 → 回到原本邏輯
+    if(mid < frameCenterX)
+        return mid + laneHalfWidthPx;  // 左線 → 中心
+    else
+        return mid - laneHalfWidthPx;  // 右線 → 中心
+}
+
 float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	int laneCenterX;
 	pixy.line.getAllFeatures(LINE_VECTOR, 1);
@@ -61,7 +85,7 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	        // --- compute length ---
 	       	float len1 = hypotf(v1.m_x1 - v1.m_x0, v1.m_y1 - v1.m_y0);
 	       	float len2 = hypotf(v2.m_x1 - v2.m_x0, v2.m_y1 - v2.m_y0);
-	        float ratio = (len1 < len2) ? (len1 / len2) : (len2 / len1);
+	        //float ratio = (len1 < len2) ? (len1 / len2) : (len2 / len1);
 	        // --- compute center x ---
 	        int mid1 = (v1.m_x0 + v1.m_x1) / 2;
 	        int mid2 = (v2.m_x0 + v2.m_x1) / 2;
@@ -96,17 +120,8 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 			    }
 			    else
 			    {
-			    	int laneCenterEstimate;
-			    	if (mid < frameCenterX)
-			    	{
-			    		// 看到的是左線 -> lane center 在右邊
-			    		laneCenterEstimate = mid + laneHalfWidthPx;
-			    	}
-			    	else
-			    	{
-			    		// 看到的是右線 -> lane center 在左邊
-			    		laneCenterEstimate = mid - laneHalfWidthPx;
-			    	}
+			    	int laneCenterEstimate = singleLineCenterX(v1);
+
 			        // --- weight by vector length ---
 			        float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
 
@@ -146,17 +161,7 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	    			    }
 	    			    else
 	    			    {
-	    			    	int laneCenterEstimate;
-	    			    	if (mid < frameCenterX)
-	    			    	{
-	    			    		// 看到的是左線 -> lane center 在右邊
-	    			    		laneCenterEstimate = mid + laneHalfWidthPx;
-	    			    	}
-	    			    	else
-	    			    	{
-	    			    		// 看到的是右線 -> lane center 在左邊
-	    			    		laneCenterEstimate = mid - laneHalfWidthPx;
-	    			    	}
+	    			    	int laneCenterEstimate = singleLineCenterX(v);
 	    			        // --- weight by vector length ---
 	    			        float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
 
