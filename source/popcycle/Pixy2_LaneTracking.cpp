@@ -6,6 +6,8 @@
  */
 #include <Pixy/Pixy2SPI_SS.h>
 #include <Popcycle/Pixy2_LaneTracking.h>
+#include <stdbool.h>
+#include <math.h>
 extern "C"{
 #include "Modules/mTimer.h"
 }
@@ -20,25 +22,27 @@ static int bufferCount = 0;
 
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
-const float kD = 0.006f;	//derivative, bigger kd, faster steer
-const float kP = -0.07f;	//proportion, bigger kp, bigger steer
+const float kD = 0.01f;	//derivative, bigger kd, faster steer
+const float kP = -0.14f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
 const float steerMax = 0.7f;
 
 // Limit steering rate
 static float lastSteer = 0.0f;
-const float steerStepLimit = 0.3f;
+const float steerStepLimit = 0.5f;
 
 // missed Vector
 static int lastLaneCenterX = 39;
 //static int lastHadTwoLines = 0;
 
 const int frameCenterX = 39; // Pixy2 line mode width/2
-const int laneHalfWidthPx = 30;   // 預估半車道寬（可微調）
+const int laneHalfWidthPx = 25;   // 預估半車道寬（可微調）
 const int jumpThreshold = 25;     // 若新估跳超過此值則暫不採用
 int singleLineStableCount = 0;    // 單線穩定計數器
 const int stabilityFrames = 3;    // 要連續多少幀才接受估值
+
+bool twoLinesValid;
 
 float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	int laneCenterX;
@@ -50,19 +54,78 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	        // Determine left and right lines
 	        auto v1 = pixy.line.vectors[0];
 	        auto v2 = pixy.line.vectors[1];
-
-	        // calculate the middle x coordinate with the start and end point x coordinates
-	        int mid1 = (v1.m_x0 + v1.m_x1)/2;
-	        int mid2 = (v2.m_x0 + v2.m_x1)/2;
-
-
-
+	        // --- compute angle ---
+	        float angle1 = atan2f(v1.m_y1 - v1.m_y0, v1.m_x1 - v1.m_x0) * 57.2958f;
+	        float angle2 = atan2f(v2.m_y1 - v2.m_y0, v2.m_x1 - v2.m_x0) * 57.2958f;
+	        float angleDiff = fabsf(angle1 - angle2);
+	        // --- compute length ---
+	       	float len1 = hypotf(v1.m_x1 - v1.m_x0, v1.m_y1 - v1.m_y0);
+	       	float len2 = hypotf(v2.m_x1 - v2.m_x0, v2.m_y1 - v2.m_y0);
+	        float ratio = (len1 < len2) ? (len1 / len2) : (len2 / len1);
+	        // --- compute center x ---
+	        int mid1 = (v1.m_x0 + v1.m_x1) / 2;
+	        int mid2 = (v2.m_x0 + v2.m_x1) / 2;
+	        if (angleDiff > 60.0f)
+	            {twoLinesValid = false;}
+//	        else if (ratio < 0.35f)
+//	            {twoLinesValid = false;}
+	        else if (abs(mid1 - mid2) < 40)
+	        	{twoLinesValid = false;}
+	        else
+	        	{twoLinesValid = true;}
+		    if (twoLinesValid){
 	        //compare mid1 and mid2, the smaller one is leftX and the bigger one is rightX
-	        int leftX = (mid1 < mid2) ? mid1 : mid2;
-	        int rightX = (mid1 < mid2) ? mid2 : mid1;
+		    	int leftX = (mid1 < mid2) ? mid1 : mid2;
+		    	int rightX = (mid1 < mid2) ? mid2 : mid1;
 
-	        laneCenterX = (leftX + rightX)/2;
-	        lastLaneCenterX = laneCenterX;
+		    	laneCenterX = (leftX + rightX)/2;
+		    	lastLaneCenterX = laneCenterX;
+		    }
+		    else{
+
+			    int mid = (v1.m_x0 + v1.m_x1) / 2;
+			    // --- compute vector length ---
+			    float len = hypotf(v1.m_x1 - v1.m_x0, v1.m_y1 - v1.m_y0);
+			    const float minLen = 15.0f;  // minimal vector length to consider, adjust empirically
+			    const float normalLen = 60.0f; // typical full-length vector in pixels, adjust for your camera
+
+			    if (len < minLen)
+			    {
+			        // vector too short → ignore
+			    	laneCenterX = lastLaneCenterX;
+			    }
+			    else
+			    {
+			    	int laneCenterEstimate;
+			    	if (mid < frameCenterX)
+			    	{
+			    		// 看到的是左線 -> lane center 在右邊
+			    		laneCenterEstimate = mid + laneHalfWidthPx;
+			    	}
+			    	else
+			    	{
+			    		// 看到的是右線 -> lane center 在左邊
+			    		laneCenterEstimate = mid - laneHalfWidthPx;
+			    	}
+			        // --- weight by vector length ---
+			        float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
+
+			        // --- vertical position factor ---
+			        float vecMidY = (v1.m_y0 + v1  .m_y1) / 2.0f;
+			        const float frameHeight = 80.0f;  // Pixy2 line-mode height
+			        float verticalFactor = 1.0f - (vecMidY / frameHeight);  // 0 at bottom, 1 at top
+
+			        float combinedWeight = lengthWeight * verticalFactor;
+			        // --- blend with previous lane center ---
+			        int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * combinedWeight);
+			        // --- jump protection ---
+			        if (abs(blended - lastLaneCenterX) > jumpThreshold)
+			        	blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
+
+			    	lastLaneCenterX = blended;
+			    	laneCenterX = lastLaneCenterX;
+			    }
+		    }
 	    }
 	// only detects 1 vector
 	else if (pixy.line.numVectors == 1)
@@ -71,46 +134,48 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	    auto v = pixy.line.vectors[0];
 	    int mid = (v.m_x0 + v.m_x1) / 2;
 
-	    int laneCenterEstimate;
-	    if (mid < frameCenterX)
-	    {
-	        // 看到的是左線 -> lane center 在右邊
-	        laneCenterEstimate = mid + laneHalfWidthPx;
-	    }
-	    else
-	    {
-	        // 看到的是右線 -> lane center 在左邊
-	        laneCenterEstimate = mid - laneHalfWidthPx;
-	    }
+	    			    // --- compute vector length ---
+	    			    float len = hypotf(v.m_x1 - v.m_x0, v.m_y1 - v.m_y0);
+	    			    const float minLen = 15.0f;  // minimal vector length to consider, adjust empirically
+	    			    const float normalLen = 60.0f; // typical full-length vector in pixels, adjust for your camera
 
-	    // 若估值大幅跳動，暫不直接採用，使用緩和或等待穩定
-	    if (abs(laneCenterEstimate - lastLaneCenterX) > jumpThreshold)
-	    {
-	        // 不立即採用，增加穩定計數或採用緩和移動
-	        singleLineStableCount = 0;
-	        // 輕微緩和（向 estimate 前進 20%）
-	        int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
-	        lastLaneCenterX = blended;
-	    }
-	    else
-	    {
-	        // 若估值接近歷史，則累積穩定次數，達到門檻再正式接受
-	        singleLineStableCount++;
-	        if (singleLineStableCount >= stabilityFrames)
-	        {
-	            lastLaneCenterX = laneCenterEstimate;
-	            singleLineStableCount = stabilityFrames; // cap
-	        }
-	        else
-	        {
-	            // 暫時緩和移動一點
-	            int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.4f);
-	            lastLaneCenterX = blended;
+	    			    if (len < minLen)
+	    			    {
+	    			        // vector too short → ignore
+	    			    	laneCenterX = lastLaneCenterX;
+	    			    }
+	    			    else
+	    			    {
+	    			    	int laneCenterEstimate;
+	    			    	if (mid < frameCenterX)
+	    			    	{
+	    			    		// 看到的是左線 -> lane center 在右邊
+	    			    		laneCenterEstimate = mid + laneHalfWidthPx;
+	    			    	}
+	    			    	else
+	    			    	{
+	    			    		// 看到的是右線 -> lane center 在左邊
+	    			    		laneCenterEstimate = mid - laneHalfWidthPx;
+	    			    	}
+	    			        // --- weight by vector length ---
+	    			        float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
 
-	        }
+	    			        // --- vertical position factor ---
+	    			        float vecMidY = (v.m_y0 + v.m_y1) / 2.0f;
+	    			        const float frameHeight = 80.0f;  // Pixy2 line-mode height
+	    			        float verticalFactor = 1.0f - (vecMidY / frameHeight);  // 0 at bottom, 1 at top
 
-	    }
-	    laneCenterX = lastLaneCenterX;
+	    			        float combinedWeight = lengthWeight * verticalFactor;
+	    			        // --- blend with previous lane center ---
+	    			        int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * combinedWeight);
+	    			        // --- jump protection ---
+	    			        if (abs(blended - lastLaneCenterX) > jumpThreshold)
+	    			        	blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
+
+	    			    	lastLaneCenterX = blended;
+	    			    	laneCenterX = lastLaneCenterX;
+	    			    }
+
 	}
 	else{
 
@@ -158,5 +223,3 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
     return steer;
 
 }
-
-

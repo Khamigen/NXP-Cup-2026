@@ -283,6 +283,7 @@ int main(void)
 */
 		float steer = Pixy2_LaneTracking(pixy);
 		mTimer_SetServoDuty(0,steer);
+		Motor_SetSpeed(-0.5);
 		/*if(pixy.line.numVectors >= 2)
 		    {
 		        // Determine left and right lines

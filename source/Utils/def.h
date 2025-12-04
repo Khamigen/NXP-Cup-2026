@@ -122,8 +122,8 @@ typedef volatile Int32 INT32;
 typedef volatile Int8 CHAR;
 
 // Macros min & max
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define max(a, b) ((a) < (b) ? (b) : (a))
+//#define min(a, b) ((a) < (b) ? (a) : (b))
+//#define max(a, b) ((a) < (b) ? (b) : (a))
 
 //------------------------------------------------------------
 // Type
