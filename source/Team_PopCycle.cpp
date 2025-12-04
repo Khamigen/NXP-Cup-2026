@@ -74,6 +74,8 @@ extern "C"
 
 #define K_MAIN_INTERVAL (100 / kPit1Period)
 
+#define MAP_NEG1_TO_1_TO_50_TO_150(x) ( ((x) + 1.0) * 50.0 + 50.0 )
+
 // Measuring speed and meaning
 static float sSpeedMotLeft;
 static float sSpeedMotRight;
@@ -137,6 +139,128 @@ int main(void)
 #if (kWithLidar)
 	UInt8 aDistFront;
 #endif
+			//-----------------------------------------------------------------------------
+			// Reading the rotation speed of the motors
+			// Motor A = left motor (rpm) -> negative value = backward, value pos = forward
+			// Motor B = right engine (rpm)
+			//-----------------------------------------------------------------------------
+			mTimer_GetSpeed(&sSpeedMotLeft, &sSpeedMotRight);
+			sSpeedTab[sSpeedIndex][0] = sSpeedMotLeft;
+			sSpeedTab[sSpeedIndex][1] = sSpeedMotRight;
+			sSpeedIndex++;
+			sSpeedIndex %= kSpeedTabSize;
+
+			// Depending on the position of the switches (switch 2 and 3) the push buttons,
+			// the servo, the DC motors and the camera are tested.
+			if (mDelay_IsDelayDone(kPit1, sDly) == true)
+			{
+				mDelay_ReStart(kPit1, sDly, 300 / kPit1Period);
+
+				// Test of LEDS
+				mLeds_Toggle(kMaskLed1 + kMaskLed2 + kMaskLed3 + kMaskLed4);
+
+				// Tests of servo
+				// The 2 push buttons allow to move in one direction and the other
+				if (mSwitch_ReadPushBut(kPushButSW1) == true)
+				{
+					aDuty += 0.05;
+					if (aDuty > 1)
+					{
+						aDuty = 1;
+					}
+					mTimer_SetServoDuty(0, aDuty);
+				}
+				else if (mSwitch_ReadPushBut(kPushButSW2) == true)
+				{
+					aDuty -= 0.05;
+					if (aDuty < -1)
+					{
+						aDuty = -1;
+					}
+					mTimer_SetServoDuty(0, aDuty);
+				}
+				else
+				{
+					aDuty = 0;
+					mTimer_SetServoDuty(0, 0);
+				}
+
+				// If the switch 2 is ON the pilot potentiom�tres the engines
+				// if the pot1 pilot the exposure time of the cam�ra
+				if ((mSwitch_ReadSwitch(kSw2) == true) && (mSwitch_ReadSwitch(kSw3) == false))
+				{
+					// motor rest
+					// Pot1 left engine
+					// Pot1 right engine
+					mTimer_SetMotorDuty(mAd_Read(kPot1), mAd_Read(kPot2));
+				}
+				else if ((mSwitch_ReadSwitch(kSw2) == false) && (mSwitch_ReadSwitch(kSw3) == false))
+				{
+					sIntTime = mAd_ReadCamera(kPot1);
+				}
+				else
+				{
+					// Set DAC 0 buffer output value, between 0 and 4095 --> LED driver
+					// Between 0 and 100% --> 0 and 1.0
+					mDac_SetDac0Output((mAd_Read(kPot1) + 1.0) / 2.0);
+				}
+
+				// Reading left and right motor current and battery voltage
+				sIMotLeft = mAd_Read(kIHBridgeLeft);
+				sIMotRight = mAd_Read(kIHBridgeRight);
+				sUBatt = mAd_Read(kUBatt);
+				sFaultLeft = mTimer_GetFaultMoteurLeft();
+				sFaultRight = mTimer_GetFaultMoteurRight();
+
+				//						// Start exposition � la lumi�re
+				//						mSpi_MLX75306_StartIntegration_old(kCamera2,sIntTime);
+				//
+				//						// Test de la cam�ra
+				//						mSpi_MLX75306_ReadPictureTest(kCamera2,sImageTabTest);
+				//
+				//						// Valeur moyenne des pixels
+				//						sPixelValMoy=sImageTabTest[156];
+
+				//-----------------------------------------------------------------------
+				// Acquiring the non-blocking image of the camera 1
+				// The acquisition time comes from the potentiometers
+				//-----------------------------------------------------------------------
+				//sImageOk=mSpi_GetImageCam1_Pot(sIntTime,sImageTabTest, &sPixelValMoy);
+
+				//-----------------------------------------------------------------------
+				// Acquiring the non-blocking image of camera 2
+				// The acquisition time comes from the potentiometers
+				//-----------------------------------------------------------------------
+				//sImageOk=mSpi_GetImageCam2_Pot(sIntTime,sImageTabTest, &sPixelValMoy);
+
+				/*if(sImageOk==true)
+						{
+								mRs232_Uart4WriteString("L:");
+
+								// Yellow trace in Labview
+								for(i=0;i<143;i++)
+									{
+										sprintf(aCharTab,"%X,",sImageTabTest[13+i]);
+										mRs232_Uart4WriteString(aCharTab);
+									}
+								// Red trace in Labview
+								for(i=0;i<143;i++)
+									 {
+										 sprintf(aCharTab,"%X",sImageTabTest[13+i]);
+										 mRs232_Uart4WriteString(aCharTab);
+										 if(i==142)
+											 {
+												 mRs232_Uart4WriteString("\r\n");
+											 }
+										 else
+											 {
+												 mRs232_Uart4WriteString(",");
+											 }
+									 }
+						}
+			}
+		}*/
+	}
 
 	//--------------------------------------------------------------------
 	// Device and card setup

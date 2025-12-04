@@ -44,6 +44,7 @@ const int stabilityFrames = 3;    // 要連續多少幀才接受估值
 
 bool twoLinesValid;
 
+
 float singleLineCenterX(const Vector &v)
 {
     float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
@@ -186,9 +187,49 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 
 		laneCenterX = lastLaneCenterX;
 		//lastHadTwoLines = 0;
+
+const int ySamplingCoordinate = 120; //can be adjusted
+const int brightnessDifferenceThreshhold = 60; //needs to be adjusted
+static uint8_t previousBrightness = 255;
+
+float Pixy2_LaneTracking(Pixy2SPI_SS &pixy, float bThresh){
+	int xSamplingCoordinate = lastLaneCenterX; //starts in the middle of the frame
+	int laneCenterX;
+	uint8_t r, g,b;
+	uint8_t currentBrightness = 0;
+	int rightOuterLinePosition, leftOuterLinePosition;
+
+	//finding right xPos of lane
+	while(xSamplingCoordinate < 315){
+		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
+		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		if(abs(previousBrightness - currentBrightness) >= bThresh){
+			rightOuterLinePosition = xSamplingCoordinate;
+			xSamplingCoordinate = 315;
+		}
+		previousBrightness = currentBrightness;
+		xSamplingCoordinate += 4; //jumps for pixels //can be adjusted //maybe define pixelSampleOffset
 	}
 
+	xSamplingCoordinate = 157;
+	previousBrightness = 255;
+
+	//finding left xPos of lane
+	while (xSamplingCoordinate > 0){
+		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
+		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		if(abs(previousBrightness - currentBrightness) >= bThresh){
+					leftOuterLinePosition = xSamplingCoordinate;
+					xSamplingCoordinate = 0;
+		}
+		previousBrightness = currentBrightness;
+		xSamplingCoordinate -= 4;
+	}
+
+	//calculating laneCenter based on assumptions that it is exactly between to outer lines
+	laneCenterX = rightOuterLinePosition - leftOuterLinePosition;
 	// error calculation
+	int frameCenterX = 157; // Pixy video mode width / 2
 	float error = (float)(laneCenterX - frameCenterX);
 
     // Moving Average
