@@ -74,6 +74,8 @@ extern "C"
 
 #define K_MAIN_INTERVAL (100 / kPit1Period)
 
+#define MAP_NEG1_TO_1_TO_50_TO_150(x) ( ((x) + 1.0) * 50.0 + 50.0 )
+
 // Measuring speed and meaning
 static float sSpeedMotLeft;
 static float sSpeedMotRight;
@@ -102,6 +104,9 @@ static float sIMotRight;
 static float sUBatt;
 static bool sFaultLeft;
 static bool sFaultRight;
+
+static float Pot1,Pot2;
+static float bThresh;
 
 // Distance measured by the LIDAR in mm
 static UInt8 sDistFront;
@@ -279,9 +284,17 @@ int main(void)
 				printf(": ");
 				pixy.line.vectors[i].print();
 			}
+
+
 		}
 */
-		float steer = Pixy2_LaneTracking(pixy);
+
+		Pot1=mAd_Read(kPot1);
+		Pot2=mAd_Read(kPot2);
+
+		bThresh = MAP_NEG1_TO_1_TO_50_TO_150(Pot1);
+
+		float steer = Pixy2_LaneTracking(pixy, bThresh);
 		mTimer_SetServoDuty(0,steer);
 		/*if(pixy.line.numVectors >= 2)
 		    {

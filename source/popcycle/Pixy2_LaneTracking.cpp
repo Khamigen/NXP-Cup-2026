@@ -38,7 +38,7 @@ const int ySamplingCoordinate = 120; //can be adjusted
 const int brightnessDifferenceThreshhold = 60; //needs to be adjusted
 static uint8_t previousBrightness = 255;
 
-float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
+float Pixy2_LaneTracking(Pixy2SPI_SS &pixy, float bThresh){
 	int xSamplingCoordinate = lastLaneCenterX; //starts in the middle of the frame
 	int laneCenterX;
 	uint8_t r, g,b;
@@ -49,7 +49,7 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	while(xSamplingCoordinate < 315){
 		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
 		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-		if(abs(previousBrightness - currentBrightness) >= brightnessDifferenceThreshhold){
+		if(abs(previousBrightness - currentBrightness) >= bThresh){
 			rightOuterLinePosition = xSamplingCoordinate;
 			xSamplingCoordinate = 315;
 		}
@@ -64,7 +64,7 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	while (xSamplingCoordinate > 0){
 		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
 		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-		if(abs(previousBrightness - currentBrightness) >= brightnessDifferenceThreshhold){
+		if(abs(previousBrightness - currentBrightness) >= bThresh){
 					leftOuterLinePosition = xSamplingCoordinate;
 					xSamplingCoordinate = 0;
 		}

@@ -19,6 +19,6 @@ extern const float Kp;	//proportion, bigger kp, bigger steer
 extern const float steerMax;
 extern const float steeringStepLimit;
 
-float Pixy2_LaneTracking(Pixy2SPI_SS &pixy);
+float Pixy2_LaneTracking(Pixy2SPI_SS &pixy, float brightnessThreshhold);
 
 #endif /* POPCYCLE__PIXY2_LANETRACKING_H_ */
