@@ -44,146 +44,48 @@ const int stabilityFrames = 3;    // 要連續多少幀才接受估值
 
 bool twoLinesValid;
 
-float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
+const int ySamplingCoordinate = 120; //can be adjusted
+const int brightnessDifferenceThreshhold = 60; //needs to be adjusted
+static uint8_t previousBrightness = 255;
+
+float Pixy2_LaneTracking(Pixy2SPI_SS &pixy, float bThresh){
+	int xSamplingCoordinate = lastLaneCenterX; //starts in the middle of the frame
 	int laneCenterX;
-	pixy.line.getAllFeatures(LINE_VECTOR, 1);
-	// if detects more than 2 vectors, calculate the center
-	if(pixy.line.numVectors >= 2)
-	    {
-			//lastHadTwoLines = 1;
-	        // Determine left and right lines
-	        auto v1 = pixy.line.vectors[0];
-	        auto v2 = pixy.line.vectors[1];
-	        // --- compute angle ---
-	        float angle1 = atan2f(v1.m_y1 - v1.m_y0, v1.m_x1 - v1.m_x0) * 57.2958f;
-	        float angle2 = atan2f(v2.m_y1 - v2.m_y0, v2.m_x1 - v2.m_x0) * 57.2958f;
-	        float angleDiff = fabsf(angle1 - angle2);
-	        // --- compute length ---
-	       	float len1 = hypotf(v1.m_x1 - v1.m_x0, v1.m_y1 - v1.m_y0);
-	       	float len2 = hypotf(v2.m_x1 - v2.m_x0, v2.m_y1 - v2.m_y0);
-	        float ratio = (len1 < len2) ? (len1 / len2) : (len2 / len1);
-	        // --- compute center x ---
-	        int mid1 = (v1.m_x0 + v1.m_x1) / 2;
-	        int mid2 = (v2.m_x0 + v2.m_x1) / 2;
-	        if (angleDiff > 60.0f)
-	            {twoLinesValid = false;}
-//	        else if (ratio < 0.35f)
-//	            {twoLinesValid = false;}
-	        else if (abs(mid1 - mid2) < 40)
-	        	{twoLinesValid = false;}
-	        else
-	        	{twoLinesValid = true;}
-		    if (twoLinesValid){
-	        //compare mid1 and mid2, the smaller one is leftX and the bigger one is rightX
-		    	int leftX = (mid1 < mid2) ? mid1 : mid2;
-		    	int rightX = (mid1 < mid2) ? mid2 : mid1;
+	uint8_t r, g,b;
+	uint8_t currentBrightness = 0;
+	int rightOuterLinePosition, leftOuterLinePosition;
 
-		    	laneCenterX = (leftX + rightX)/2;
-		    	lastLaneCenterX = laneCenterX;
-		    }
-		    else{
-
-			    int mid = (v1.m_x0 + v1.m_x1) / 2;
-			    // --- compute vector length ---
-			    float len = hypotf(v1.m_x1 - v1.m_x0, v1.m_y1 - v1.m_y0);
-			    const float minLen = 15.0f;  // minimal vector length to consider, adjust empirically
-			    const float normalLen = 60.0f; // typical full-length vector in pixels, adjust for your camera
-
-			    if (len < minLen)
-			    {
-			        // vector too short → ignore
-			    	laneCenterX = lastLaneCenterX;
-			    }
-			    else
-			    {
-			    	int laneCenterEstimate;
-			    	if (mid < frameCenterX)
-			    	{
-			    		// 看到的是左線 -> lane center 在右邊
-			    		laneCenterEstimate = mid + laneHalfWidthPx;
-			    	}
-			    	else
-			    	{
-			    		// 看到的是右線 -> lane center 在左邊
-			    		laneCenterEstimate = mid - laneHalfWidthPx;
-			    	}
-			        // --- weight by vector length ---
-			        float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
-
-			        // --- vertical position factor ---
-			        float vecMidY = (v1.m_y0 + v1  .m_y1) / 2.0f;
-			        const float frameHeight = 80.0f;  // Pixy2 line-mode height
-			        float verticalFactor = 1.0f - (vecMidY / frameHeight);  // 0 at bottom, 1 at top
-
-			        float combinedWeight = lengthWeight * verticalFactor;
-			        // --- blend with previous lane center ---
-			        int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * combinedWeight);
-			        // --- jump protection ---
-			        if (abs(blended - lastLaneCenterX) > jumpThreshold)
-			        	blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
-
-			    	lastLaneCenterX = blended;
-			    	laneCenterX = lastLaneCenterX;
-			    }
-		    }
-	    }
-	// only detects 1 vector
-	else if (pixy.line.numVectors == 1)
-	{
-	    // 只有一條線：做投影向內側
-	    auto v = pixy.line.vectors[0];
-	    int mid = (v.m_x0 + v.m_x1) / 2;
-
-	    			    // --- compute vector length ---
-	    			    float len = hypotf(v.m_x1 - v.m_x0, v.m_y1 - v.m_y0);
-	    			    const float minLen = 15.0f;  // minimal vector length to consider, adjust empirically
-	    			    const float normalLen = 60.0f; // typical full-length vector in pixels, adjust for your camera
-
-	    			    if (len < minLen)
-	    			    {
-	    			        // vector too short → ignore
-	    			    	laneCenterX = lastLaneCenterX;
-	    			    }
-	    			    else
-	    			    {
-	    			    	int laneCenterEstimate;
-	    			    	if (mid < frameCenterX)
-	    			    	{
-	    			    		// 看到的是左線 -> lane center 在右邊
-	    			    		laneCenterEstimate = mid + laneHalfWidthPx;
-	    			    	}
-	    			    	else
-	    			    	{
-	    			    		// 看到的是右線 -> lane center 在左邊
-	    			    		laneCenterEstimate = mid - laneHalfWidthPx;
-	    			    	}
-	    			        // --- weight by vector length ---
-	    			        float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
-
-	    			        // --- vertical position factor ---
-	    			        float vecMidY = (v.m_y0 + v.m_y1) / 2.0f;
-	    			        const float frameHeight = 80.0f;  // Pixy2 line-mode height
-	    			        float verticalFactor = 1.0f - (vecMidY / frameHeight);  // 0 at bottom, 1 at top
-
-	    			        float combinedWeight = lengthWeight * verticalFactor;
-	    			        // --- blend with previous lane center ---
-	    			        int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * combinedWeight);
-	    			        // --- jump protection ---
-	    			        if (abs(blended - lastLaneCenterX) > jumpThreshold)
-	    			        	blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
-
-	    			    	lastLaneCenterX = blended;
-	    			    	laneCenterX = lastLaneCenterX;
-	    			    }
-
-	}
-	else{
-
-		laneCenterX = lastLaneCenterX;
-		//lastHadTwoLines = 0;
+	//finding right xPos of lane
+	while(xSamplingCoordinate < 315){
+		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
+		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		if(abs(previousBrightness - currentBrightness) >= bThresh){
+			rightOuterLinePosition = xSamplingCoordinate;
+			xSamplingCoordinate = 315;
+		}
+		previousBrightness = currentBrightness;
+		xSamplingCoordinate += 4; //jumps for pixels //can be adjusted //maybe define pixelSampleOffset
 	}
 
+	xSamplingCoordinate = 157;
+	previousBrightness = 255;
+
+	//finding left xPos of lane
+	while (xSamplingCoordinate > 0){
+		pixy.video.getRGB(xSamplingCoordinate,  ySamplingCoordinate, &r, &g, &b);
+		currentBrightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		if(abs(previousBrightness - currentBrightness) >= bThresh){
+					leftOuterLinePosition = xSamplingCoordinate;
+					xSamplingCoordinate = 0;
+		}
+		previousBrightness = currentBrightness;
+		xSamplingCoordinate -= 4;
+	}
+
+	//calculating laneCenter based on assumptions that it is exactly between to outer lines
+	laneCenterX = rightOuterLinePosition - leftOuterLinePosition;
 	// error calculation
+	int frameCenterX = 157; // Pixy video mode width / 2
 	float error = (float)(laneCenterX - frameCenterX);
 
     // Moving Average
