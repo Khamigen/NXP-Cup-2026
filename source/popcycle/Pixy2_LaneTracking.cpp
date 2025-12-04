@@ -6,11 +6,13 @@
  */
 #include <Pixy/Pixy2SPI_SS.h>
 #include <Popcycle/Pixy2_LaneTracking.h>
+#include <stdbool.h>
+#include <math.h>
 extern "C"{
 #include "Modules/mTimer.h"
 }
 
-#define MA_WINDOW_SIZE 5 // window used for moving average
+#define MA_WINDOW_SIZE 10 // window used for moving average
 
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
@@ -20,19 +22,27 @@ static int bufferCount = 0;
 
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
-const float kD = 0.006f;	//derivative, bigger kd, faster steer
-const float kP = -0.07f;	//proportion, bigger kp, bigger steer
+const float kD = 0.01f;	//derivative, bigger kd, faster steer
+const float kP = -0.14f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
-const float steerMax = 0.6f;
+const float steerMax = 0.7f;
 
 // Limit steering rate
 static float lastSteer = 0.0f;
-const float steerStepLimit = 0.05f;
+const float steerStepLimit = 0.5f;
 
 // missed Vector
-static int lastLaneCenterX = 157; //middle of video width
-static int lastHadTwoLines = 0;
+static int lastLaneCenterX = 39;
+//static int lastHadTwoLines = 0;
+
+const int frameCenterX = 39; // Pixy2 line mode width/2
+const int laneHalfWidthPx = 25;   // 預估半車道寬（可微調）
+const int jumpThreshold = 25;     // 若新估跳超過此值則暫不採用
+int singleLineStableCount = 0;    // 單線穩定計數器
+const int stabilityFrames = 3;    // 要連續多少幀才接受估值
+
+bool twoLinesValid;
 
 const int ySamplingCoordinate = 120; //can be adjusted
 const int brightnessDifferenceThreshhold = 60; //needs to be adjusted
@@ -115,5 +125,3 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy, float bThresh){
     return steer;
 
 }
-
-
