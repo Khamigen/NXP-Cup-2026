@@ -30,12 +30,12 @@ void Motor_Init(void)
 
 void Motor_SetSpeed(float speed)
 {
-    if(speed > 1.0f) {speed = 1.0f;}
-    if(speed < -1.0f) {speed = -1.0f;}
+    if(speed > speedMax) {speed = speedMax;}
+    if(speed < speedMin) {speed = speedMin;}
     mTimer_SetServoDuty(1, speed);
 }
 
-float Motor_SetSpeedCurve(float steer)
+void Motor_SetSpeedCurve(float steer)
 {
 	//determine the target speed will steering, bigger steer -> slower target speed
 	float speedTarget = speedMax - kCurve * fabs(steer);
@@ -47,8 +47,8 @@ float Motor_SetSpeedCurve(float steer)
 	{speedTarget=speedMin;}
 
 	//Exponential Moving Average, smooth out the change of speed so it don't accel/break instnatly
-	speedEMA = alpha * speedTarget + (1.0f - alpha) * speedEMA;
-	return speedEMA;
+	speedEMA = 0.3 * (alpha * speedTarget + (1.0f - alpha) * speedEMA);
+	Motor_SetSpeed (speedEMA);
 }
 
 
