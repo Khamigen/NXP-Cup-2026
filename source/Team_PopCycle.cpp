@@ -92,6 +92,7 @@ extern "C"
 //hier 8 Programme = DIP Schalter 1 bis 3
 #define	PROGRENNEN 		 0
 #define PROGSDDEBUG	 	 1
+
 #define PROGTESTSPECIAL	 2
 #define PROGTESTRADLENK	 3
 #define PROGTESTBESCHL	 4
@@ -113,6 +114,37 @@ static bool Startbutton,Startbutton_old;
 static bool Button2,Button2_old;
 static bool Motoron;
 static float Pot1,Pot2;
+
+// Table containing the image of the digital camera,
+static UInt16 sImage[106];
+static Int16 diffImage[106];
+
+//SD-card buffer Sachen
+#if(SD_ENABLED)
+
+#define SD_DATA_BLOCK_COUNT (1U)
+/*! @brief Start data block number accessed in card */
+#define SD_DATA_BLOCK_START (100U)
+/*! @brief Data buffer size. */
+#define SD_BUFFER_SIZE (FSL_SDMMC_DEFAULT_BLOCK_SIZE * (2*SD_DATA_BLOCK_COUNT+1U))
+SDK_ALIGN(uint8_t g_SDdataWrite[SD_BUFFER_SIZE], BOARD_SDMMC_DATA_BUFFER_ALIGN_SIZE);
+//nun die Definition der SD-card
+sd_card_t g_sd;
+
+#endif
+
+//Wagenwerte
+float Masse=1320.0;		//in Gramm
+float Spurbreite=0.135; //in Meter
+float Radstand=0.175;	//in Meter
+float Shoehe=0.04;		//Schwerpunkthoehe ueber Boden in Meter
+float Sabstand=0.06;	//Schwerpunktabstand vor Hinterachse in Meter
+float Kamerahoehe=0.4; //in Meter ueber dem Boden
+float Radradius=0.03;	//in Meter
+
+// Measurement of the accelerometer and the magnetometer
+static SRAWDATAEnum sAccel;   // in g
+static SRAWDATAEnum sMagneto; // in micro teslas
 
 //SD-card buffer Sachen
 #if(SD_ENABLED)
@@ -167,6 +199,18 @@ short sdprintf8(sd_card_t *card,int zahl,const char *str);
 void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
 #endif
 
+Int8 lese_Programm(void);
+short sprintfr8(char *ptr,int zahl, const char *str);
+void zeige_Wert(UInt8 wert);
+void signal_init(void);
+
+#if (SD_ENABLED)
+
+short write2SD(sd_card_t *card, const char *str);
+short sdprintf8(sd_card_t *card,int zahl,const char *str);
+
+#endif
+
 /*
  * @brief   Application entry point.
  */
@@ -188,6 +232,7 @@ int main(void)
 
 	//Werte die gesetzt werden
 	float steer;
+
 	float aDuty;
 	float aUMotLeft,aUMotRight;
 	// Measuring speed
@@ -242,6 +287,7 @@ int main(void)
 #if (SD_ENABLED)
 	BOARD_InitSDPins();
 #endif
+
 	//BOARD_InitBootPins();
 	//BOARD_InitBootClocks();
 	//BOARD_InitBootPeripherals();
@@ -298,6 +344,7 @@ int main(void)
 	//Motor init
 	Motor_Init();
 
+
 	sDelay = mDelay_GetDelay(kPit1, K_MAIN_INTERVAL);
 	//PRINTF("Hello World\n");
 	printf("HellO World: %ld %d\n",clock(),CLOCKS_PER_SEC);
@@ -308,6 +355,7 @@ int main(void)
 	if (pixyInitReturnCode != 0) {
 		errorCode |= (1 << 0);
 	};
+
 
 	pixy.getVersion();
 	pixy.version->print();
@@ -321,6 +369,7 @@ int main(void)
 		zeige_Wert(errorCode);
 		zeige_Wert(errorCode);
 	};
+
 
 
 	//--------------------------------------------------------------------
@@ -367,7 +416,6 @@ int main(void)
 						usleep(3049000);   // 0.5 Sekunden warten
 						steer = 0.0;
 						mTimer_SetServoDuty(0,steer);
-
 						doneinitflag=true;
 					}
 
@@ -402,7 +450,7 @@ int main(void)
 
 							usleep(30490000);   // 5 Sekunden warten
 
-							testi=1;
+
 							mLeds_Write(kMaskLed1,kLedOn);
 
 							startflag=0;
@@ -435,9 +483,6 @@ int main(void)
 						mTimer_SetServoDuty(0,steer);
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
-
-
-
 					}
 
 					testi++;
@@ -446,6 +491,7 @@ int main(void)
 
 
 					Motor_SetSpeed(-1);	//stopping motor
+
 					Zustand_old=Zustand;
 					Zustand=ZHALT;
 				}
@@ -459,6 +505,7 @@ int main(void)
 					}
 					else if(zeigewert==1) {
 						//vierfacher nmax Wert
+
 						mLeds_Write(kMaskLed2,kLedOff);
 						mLeds_Write(kMaskLed3,kLedOff);
 						mLeds_Write(kMaskLed4,kLedOn);
@@ -634,6 +681,7 @@ int main(void)
 								Button2_old=Button2;
 
 			}
+
 		}
 	}
 
@@ -669,6 +717,7 @@ void signal_init(void) {
 }
 
 void zeige_Wert(int wert) {
+
 	//erstmal ein flash
 	mLeds_Write(kMaskLed1,kLedOff);
 	mLeds_Write(kMaskLed2,kLedOff);
@@ -685,6 +734,7 @@ void zeige_Wert(int wert) {
 	mLeds_Write(kMaskLed3,kLedOff);
 	mLeds_Write(kMaskLed4,kLedOff);
 	usleep(1000000);
+
 	//dann die unteren 4 Bit
 	if(wert&(1<<3)) { mLeds_Write(kMaskLed1,kLedOn);}
 	if(wert&(1<<2)) { mLeds_Write(kMaskLed2,kLedOn);}
@@ -823,5 +873,6 @@ void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time)
     }
     write2SD(card, "\n");
 }
+
 #endif
 
