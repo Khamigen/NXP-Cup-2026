@@ -492,6 +492,7 @@ int main(void)
 
 					Motor_SetSpeed(-1);	//stopping motor
 
+
 					Zustand_old=Zustand;
 					Zustand=ZHALT;
 				}
