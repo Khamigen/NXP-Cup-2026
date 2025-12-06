@@ -474,7 +474,7 @@ int main(void)
 #endif
 
 					zeigewert=0;
-					Motor_SetSpeed(-1);
+					Motor_SetSpeed(-1);	//stopping motor
 					Zustand_old=Zustand;
 					Zustand=ZHALT;
 				}
