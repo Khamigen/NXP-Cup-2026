@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2003-20xx Haute �cole ARC Ing�ni�rie, Switzerland.
  * Copyright 2016-2019 NXP
@@ -31,7 +30,7 @@
  */
 
 /**
- * @file    nxpcup_ARC.c
+ * @file    NXPCUP-MICROE-2021.cpp
  * @brief   Application entry point.
  */
 
@@ -40,6 +39,7 @@ extern "C"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "board.h"
 #include "peripherals.h"
@@ -47,6 +47,9 @@ extern "C"
 #include "clock_config.h"
 #include "MK64F12.h"
 #include "fsl_debug_console.h"
+
+//hier die SD-card
+#include "sdcard/sdmmc_config.h"
 
 #include "Modules/mSpi.h"
 #include "Modules/mDac.h"
@@ -65,6 +68,7 @@ extern "C"
 #include "Applications/gCompute.h"
 #include "Applications/gOutput.h"
 }
+
 // popcycle header
 #include <Popcycle/Pixy2_LaneTracking.h>
 #include <Popcycle/Motor_Control.h>
@@ -72,31 +76,71 @@ extern "C"
 /* Pixy 2 */
 #include "Pixy/Pixy2SPI_SS.h"
 
-#define K_MAIN_INTERVAL (100 / kPit1Period)
+//kPit1Period ist die Periodenlaenge des Timers in ms, normalerweise ist diese 1ms
+//das main Intervall soll 34ms sein
+#define	DELTA_T			 34
+#define K_MAIN_INTERVAL (DELTA_T / kPit1Period)
+#define PI				 3.141592653589793
+//Anzahl der Magnete pro Radumdrehung
+#define kNbPole 		 6
+//IMAGEXMOD ist die Schrittweite der Pixel in x Richtung, d.h. jeder wievielte Pixel verwendet werden soll
+#define IMAGEXMOD		 4
 
-#define MAP_NEG1_TO_1_TO_50_TO_150(x) ( ((x) + 1.0) * 50.0 + 50.0 )
+//hier 8 Programme = DIP Schalter 1 bis 3
+#define	PROGRENNEN 		 0
+#define PROGKAMERA	 	 1
+#define PROGTESTSPECIAL	 2
+#define PROGTESTRADLENK	 3
+#define PROGTESTBESCHL	 4
+#define PROGTESTBREMS	 5
+#define PROGFOLLOWOBJECT 6
+#define PROGFOLLOWLINE   7
+//hier die Zustaende
+#define ZINIT			 1
+#define ZSTART			 2
+#define ZRUN			 3
+#define ZSTOP			 4
+#define ZHALT			 5
 
-// Measuring speed and meaning
-static float sSpeedMotLeft;
-static float sSpeedMotRight;
-#define kSpeedTabSize 100
-static UInt16 sSpeedIndex;
-static float sSpeedTab[kSpeedTabSize][2];
-// Table containing the image (and various infos) of the
-// digital camera, the test board is used for the Labview app
-static UInt16 sImageTabTest[200];
+
+// Zustandsvariablen
+static Int8 Programm, Programm_old;
+static Int8 Zustand, Zustand_old;
+static bool Startbutton,Startbutton_old;
+static bool Button2,Button2_old;
+static bool Motoron;
+static float Pot1,Pot2;
+
+// Table containing the image of the digital camera,
+static UInt16 sImage[106];
+static Int16 diffImage[106];
+
+//SD-card buffer Sachen
+#if(SD_ENABLED)
+
+#define SD_DATA_BLOCK_COUNT (1U)
+/*! @brief Start data block number accessed in card */
+#define SD_DATA_BLOCK_START (100U)
+/*! @brief Data buffer size. */
+#define SD_BUFFER_SIZE (FSL_SDMMC_DEFAULT_BLOCK_SIZE * (2*SD_DATA_BLOCK_COUNT+1U))
+SDK_ALIGN(uint8_t g_SDdataWrite[SD_BUFFER_SIZE], BOARD_SDMMC_DATA_BUFFER_ALIGN_SIZE);
+//nun die Definition der SD-card
+sd_card_t g_sd;
+
+#endif
+
+//Wagenwerte
+float Masse=1320.0;		//in Gramm
+float Spurbreite=0.135; //in Meter
+float Radstand=0.175;	//in Meter
+float Shoehe=0.04;		//Schwerpunkthoehe ueber Boden in Meter
+float Sabstand=0.06;	//Schwerpunktabstand vor Hinterachse in Meter
+float Kamerahoehe=0.4; //in Meter ueber dem Boden
+float Radradius=0.03;	//in Meter
+
 // Measurement of the accelerometer and the magnetometer
 static SRAWDATAEnum sAccel;   // in g
 static SRAWDATAEnum sMagneto; // in micro teslas
-//static UInt8 sAccelMagnetoStatus;
-static float sYaw;   // in degree
-static float sRoll;  // in degree
-static float sPitch; // in degree
-
-// Angular velocity of gyro in degrees
-static float sAngVel_X;
-static float sAngVel_Y;
-static float sAngVel_Z;
 
 // Measurement of motor current and battery voltage
 static float sIMotLeft;
@@ -108,159 +152,86 @@ static bool sFaultRight;
 // Distance measured by the LIDAR in mm
 static UInt8 sDistFront;
 
+Int8 lese_Programm(void);
+short sprintfr8(char *ptr,int zahl, const char *str);
+void zeige_Wert(UInt8 wert);
+void signal_init(void);
+
+#if (SD_ENABLED)
+
+short write2SD(sd_card_t *card, const char *str);
+short sdprintf8(sd_card_t *card,int zahl,const char *str);
+
+#endif
+
 /*
  * @brief   Application entry point.
  */
 int main(void)
 {
+#if (SD_ENABLED)
+	//mit einem lokalen Zeiger agieren ist einfacher
+	sd_card_t *card = &g_sd;
+#endif
 
-	static UInt8 sPixelValMoy;
-	static bool sImageOk = false;
-	static Int16 sDly;
-	static UInt16 sIntTime = 25000;
-	Int32 aWakeIntMain;
-	Int8 aCharTab[50];
-	UInt32 i = 0;
-	bool aRet;
-	float aDuty = 0;
+	//der genutzte Timer
+	static Int16 sDelay;
 
-	// Table containing the image (and various infos) of the digital camera
-	UInt8 aImageTab[200];
+	bool doneinitflag;
+	Int16 algorith,startflag,zeigewert,testi;
+
+	//Werte die gesetzt werden
+	float aDuty;
+	float aUMotLeft,aUMotRight;
+	// Measuring speed
+	float aSpeedMotLeft;
+	float aSpeedMotRight;
+
 	// Sensor value
 	SRAWDATAEnum aAccel;   // in g
 	SRAWDATAEnum aMagneto; // in micro teslas
 	float aYaw;			   // in degree
 	float aRoll;		   // in degree
 	float aPitch;		   // in degree
-	// Measuring speed and meaning
-	float aSpeedMotLeft;
-	float aSpeedMotRight;
+	float aAngVel_X=0.0;		//mdps = milli degree per second ?
+	float aAngVel_Y=0.0;		//mdps = milli degree per second ?
+	float aAngVel_Z=0.0;		//mdps = milli degree per second ?
+	float Winkelsum_x,Winkelsum_y,Winkelsum_z;
+
+	//Variablen fuer die genutzten Programme
+	clock_t timeakt,timemax;
+	UInt16 timermark1;
+	Int16 difftimer1,difftimer2,mdifftimer1,mdifftimer2;
+
+	static float ILeft[10]={0,0,0,0,0,0,0,0,0,0};
+	static float ILeftmittel=0;
+	static int   ILeftindex=0;
+	static float IRight[10]={0,0,0,0,0,0,0,0,0,0};
+	static float IRightmittel=0;
+	static int   IRightindex=0;
+	float ILeftmitteldummy,IRightmitteldummy,IMittelfrueh;
+	float dummy,nmax;
+	float Usoll1,Usoll2,deltat;
+	Int16   i,j,z;
+
+
+	doneinitflag=false;
+	Programm=Programm_old=-1;
+	Zustand=Zustand_old=ZINIT;
+	Startbutton_old=false;
+	Button2=false;
+	Motoron=false;
 
 #if (kWithLidar)
 	UInt8 aDistFront;
 #endif
-			//-----------------------------------------------------------------------------
-			// Reading the rotation speed of the motors
-			// Motor A = left motor (rpm) -> negative value = backward, value pos = forward
-			// Motor B = right engine (rpm)
-			//-----------------------------------------------------------------------------
-			mTimer_GetSpeed(&sSpeedMotLeft, &sSpeedMotRight);
-			sSpeedTab[sSpeedIndex][0] = sSpeedMotLeft;
-			sSpeedTab[sSpeedIndex][1] = sSpeedMotRight;
-			sSpeedIndex++;
-			sSpeedIndex %= kSpeedTabSize;
 
-			// Depending on the position of the switches (switch 2 and 3) the push buttons,
-			// the servo, the DC motors and the camera are tested.
-			if (mDelay_IsDelayDone(kPit1, sDly) == true)
-			{
-				mDelay_ReStart(kPit1, sDly, 300 / kPit1Period);
-
-				// Test of LEDS
-				mLeds_Toggle(kMaskLed1 + kMaskLed2 + kMaskLed3 + kMaskLed4);
-
-				// Tests of servo
-				// The 2 push buttons allow to move in one direction and the other
-				if (mSwitch_ReadPushBut(kPushButSW1) == true)
-				{
-					aDuty += 0.05;
-					if (aDuty > 1)
-					{
-						aDuty = 1;
-					}
-					mTimer_SetServoDuty(0, aDuty);
-				}
-				else if (mSwitch_ReadPushBut(kPushButSW2) == true)
-				{
-					aDuty -= 0.05;
-					if (aDuty < -1)
-					{
-						aDuty = -1;
-					}
-					mTimer_SetServoDuty(0, aDuty);
-				}
-				else
-				{
-					aDuty = 0;
-					mTimer_SetServoDuty(0, 0);
-				}
-
-				// If the switch 2 is ON the pilot potentiom�tres the engines
-				// if the pot1 pilot the exposure time of the cam�ra
-				if ((mSwitch_ReadSwitch(kSw2) == true) && (mSwitch_ReadSwitch(kSw3) == false))
-				{
-					// motor rest
-					// Pot1 left engine
-					// Pot1 right engine
-					mTimer_SetMotorDuty(mAd_Read(kPot1), mAd_Read(kPot2));
-				}
-				else if ((mSwitch_ReadSwitch(kSw2) == false) && (mSwitch_ReadSwitch(kSw3) == false))
-				{
-					sIntTime = mAd_ReadCamera(kPot1);
-				}
-				else
-				{
-					// Set DAC 0 buffer output value, between 0 and 4095 --> LED driver
-					// Between 0 and 100% --> 0 and 1.0
-					mDac_SetDac0Output((mAd_Read(kPot1) + 1.0) / 2.0);
-				}
-
-				// Reading left and right motor current and battery voltage
-				sIMotLeft = mAd_Read(kIHBridgeLeft);
-				sIMotRight = mAd_Read(kIHBridgeRight);
-				sUBatt = mAd_Read(kUBatt);
-				sFaultLeft = mTimer_GetFaultMoteurLeft();
-				sFaultRight = mTimer_GetFaultMoteurRight();
-
-				//						// Start exposition � la lumi�re
-				//						mSpi_MLX75306_StartIntegration_old(kCamera2,sIntTime);
-				//
-				//						// Test de la cam�ra
-				//						mSpi_MLX75306_ReadPictureTest(kCamera2,sImageTabTest);
-				//
-				//						// Valeur moyenne des pixels
-				//						sPixelValMoy=sImageTabTest[156];
-
-				//-----------------------------------------------------------------------
-				// Acquiring the non-blocking image of the camera 1
-				// The acquisition time comes from the potentiometers
-				//-----------------------------------------------------------------------
-				//sImageOk=mSpi_GetImageCam1_Pot(sIntTime,sImageTabTest, &sPixelValMoy);
-
-				//-----------------------------------------------------------------------
-				// Acquiring the non-blocking image of camera 2
-				// The acquisition time comes from the potentiometers
-				//-----------------------------------------------------------------------
-				//sImageOk=mSpi_GetImageCam2_Pot(sIntTime,sImageTabTest, &sPixelValMoy);
-
-				/*if(sImageOk==true)
-						{
-								mRs232_Uart4WriteString("L:");
-
-								// Yellow trace in Labview
-								for(i=0;i<143;i++)
-									{
-										sprintf(aCharTab,"%X,",sImageTabTest[13+i]);
-										mRs232_Uart4WriteString(aCharTab);
-									}
-								// Red trace in Labview
-								for(i=0;i<143;i++)
-									 {
-										 sprintf(aCharTab,"%X",sImageTabTest[13+i]);
-										 mRs232_Uart4WriteString(aCharTab);
-										 if(i==142)
-											 {
-												 mRs232_Uart4WriteString("\r\n");
-											 }
-										 else
-											 {
-												 mRs232_Uart4WriteString(",");
-											 }
-									 }
-						}
-			}
-		}*/
-	}
+#if (SD_ENABLED)
+	BOARD_InitSDPins();
+#endif
+	//BOARD_InitBootPins();
+	//BOARD_InitBootClocks();
+	//BOARD_InitBootPeripherals();
 
 	//--------------------------------------------------------------------
 	// Device and card setup
@@ -304,10 +275,6 @@ int main(void)
 	mDac_Setup();
 	mDac_Open();
 
-	// Setup and start of motor and servo PWM controls and speed measurement
-	mTimer_Setup();
-	mTimer_Open();
-
 	// Enable IRQ at the CPU -> Primask
 	__enable_irq();
 
@@ -315,17 +282,8 @@ int main(void)
 	mRs232_Setup();
 	mRs232_Open();
 
-/*	mTimer_SetServoDuty(1, 1);
-	SDK_DelayAtLeastUs(15000000, SystemCoreClock); //3s
-	mTimer_SetServoDuty(1, -0.6);
-	SDK_DelayAtLeastUs(15000000, SystemCoreClock); //
-	mTimer_SetServoDuty(1, -0.4);*/
+	//Motor init
 	Motor_Init();
-
-
-	//mTimer_SetServoDuty(0, 0.6);
-	//mTimer_SetServoDuty(0, -0.6);
-	//mTimer_SetServoDuty(0, 0);
 
 	// Lidar --> I2C
 #if (kWithLidar)
@@ -343,16 +301,16 @@ int main(void)
 #if (kWithAccel)
 
 	// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	// !!! The calibration takes almost 1mn and you have to turn the car in
-	//     all directions during this time of init
+	// !!! The calibration of the magnetometer takes almost 1mn and you have
+	// to turn the car in all directions during this time of init
 	// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	// Init of FXOS8700CQ
-	mAccelMagneto_Init();
+	//mAccelMagneto_Init();
 	// Calibration of the offset of the accelerometer
-	mAccelMagneto_Accel_Calibration();
+	//mAccelMagneto_Accel_Calibration();
 	// Calibration of the offset magnetometer
-	mAccelMagneto_Mag_Calibration();
+	//mAccelMagneto_Mag_Calibration();
 
 	// Init of FXAS21002C
 	mGyro_Init();
@@ -360,268 +318,634 @@ int main(void)
 	mGyro_Calibration();
 #endif
 
-/*    //Pixycam --> create an instance
+	sDelay = mDelay_GetDelay(kPit1, K_MAIN_INTERVAL);
+	//PRINTF("Hello World\n");
+	printf("HellO World: %ld %d\n",clock(),CLOCKS_PER_SEC);
+
 	Pixy2SPI_SS pixy;
 	pixy.init();
-	//pixy.version->print();
-	bool first = true;
-
-	aWakeIntMain = mDelay_GetDelay(kPit1, 500 / kPit1Period);
-
-	PRINTF("Hello World\n");
-	pixy.setLED(255, 0, 0); // Set RGB LED of Pixy to red
-*/
-	//Pixy initialization for linetracking Redline to indicate init successful
-	Pixy2SPI_SS pixy;
-	pixy.init();
-	pixy.setLED(255,0,0);
+	pixy.getVersion();
+	pixy.version->print();
+	printf("HellO World: %ld\n",clock());
+	pixy.setLED(0, 255, 0);
+	//pixy.setLamp(1, 1);
 	pixy.changeProg("line");
-	//pixy.line.setMode();
+
+
+
 	//--------------------------------------------------------------------
 	// Infinite loop -> round robin
 	//--------------------------------------------------------------------
 	for (;;)
 	{
-		sDistFront = sAngVel_X;
-
-		//-----------------------------------------------------------------
-		// Pixy 2: Get Lines
-		// This function requests for all lines detected by pixy
-		//-----------------------------------------------------------------
-
-		//Note: with a console output the program is buggy while debugging
-/*		if (pixy.line.numVectors)
+		if (mDelay_IsDelayDone(kPit1, sDelay))
 		{
-			printf("Detected ");
-			printf("%i", pixy.line.numVectors);
-			printf("\n");
+			mDelay_ReStart(kPit1, sDelay, K_MAIN_INTERVAL);
 
-			for (i = 0; i < pixy.line.numVectors; i++)
-			{
-				printf("  line  ");
-				printf("%i", (int)i);
-				printf(": ");
-				pixy.line.vectors[i].print();
+			//aktuelles Programm bestimmen
+			Programm=lese_Programm();
+			if(Programm!=Programm_old) {
+				Zustand_old=Zustand;
+				doneinitflag=false;
+				Zustand=ZINIT;
+				Programm_old=Programm;
 			}
-		}
-*/
-		float steer = Pixy2_LaneTracking(pixy);
-		mTimer_SetServoDuty(0,steer);
-		float pot2 = mAd_Read(kPot2);
-		Motor_SetSpeed(pot2);
-		/*if(pixy.line.numVectors >= 2)
-		    {
-		        // Determine left and right lines
-		        auto v1 = pixy.line.vectors[0];
-		        auto v2 = pixy.line.vectors[1];
-		        //auto v1_avg, v2_avg;
-		        int mid1 = (v1.m_x0 + v1.m_x1)/2;
-		        int mid2 = (v2.m_x0 + v2.m_x1)/2;
+			//nun die Eingabebuttons lesen
+			Startbutton=mSwitch_ReadPushBut(kPushButSW2);
+			Button2=mSwitch_ReadPushBut(kPushButSW1);
+			Pot1=mAd_Read(kPot1);
+			Pot2=mAd_Read(kPot2);
+			Motoron=mSwitch_ReadSwitch(kSw4);
+			sUBatt = mAd_Read(kUBatt);
 
-		        int leftX = (mid1 < mid2) ? mid1 : mid2;
-		        int rightX = (mid1 < mid2) ? mid2 : mid1;
+			//jetzt die Programme durchgehen
+			//Die Zustaende werden dann in jedem Programm beruecksichtigt
 
-		        int laneCenterX = (leftX + rightX)/2;
-		        int frameCenterX = 39; // Pixy2 line mode width / 2
-		        int error = laneCenterX - frameCenterX;
-		        float lenkung = error * -0.05;
-		        float max = 0.6;
-		        if (lenkung>max){
-		        	lenkung = max;
-		        }
-		        else if (lenkung<-max){
-		        	lenkung=-max;
-		        }
-		        // Send error to servo / motor control
-		        mTimer_SetServoDuty(0, lenkung); // example proportional control
+			if(Programm==PROGRENNEN) {
+				if(Zustand==ZINIT) {
+					//kritische Groessen signalisieren
 
-		    }*/
-/* Temporally comment everything beneath
-		//--------------------------------------------------------------------
-		// Depending on the position of the switch 1 we go from the test state (if = 1, see below) to the automatic state.
-		//--------------------------------------------------------------------
-		// Automatic mode
-		if (mSwitch_ReadSwitch(kSw1) == true)
-		{
-			gInput_Execute();
-			gCompute_Execute();
-			gOutput_Execute();
-
-			if (mDelay_IsDelayDone(kPit1, aWakeIntMain))
-			{
-				mDelay_ReStart(kPit1, aWakeIntMain, K_MAIN_INTERVAL);
-
-				//-----------------------------------------------------------------
-				// Start exposition and read the image
-				//-----------------------------------------------------------------
-				//sIntTime=5;	// 5ms
-				//mSpi_MLX75306_StartIntegration(kCamera2, sIntTime);
-				//mSpi_MLX75306_ReadPicture(kCamera2, aImageTab);
-
-#if (kWithAccel)
-				//-----------------------------------------------------------------
-				// Read accelerometer and magnetometer
-				//-----------------------------------------------------------------
-				mAccelMagneto_ReadData(&aAccel, &aMagneto, &aYaw, &aRoll, &aPitch);
-#endif
-
-#if (kWithLidar)
-
-				//--------------------------------------------------------------------
-				// Reading distance LIDAR (mm)
-				//--------------------------------------------------------------------
-				mVL6180x_GetRange(aDistFront);
-#endif
-				//-----------------------------------------------------------------------------
-				// Reading the rotation speed of the motors
-				// Motor A = motor left -> negative value = backward, value pos = forward
-				// Motor B = right engine
-				//-----------------------------------------------------------------------------
-				mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-			}
-		}
-		//--------------------------------------------------------------------
-		// Mode test
-		//--------------------------------------------------------------------
-		else
-		{
-
-			// Reading of the accelerometer and the magnetometer
-			// Angle in degrees and acceleration in g
-#if (kWithAccel)
-			aRet = mAccelMagneto_ReadData(&sAccel, &sMagneto, &sYaw, &sRoll, &sPitch);
-			aRet = mGyro_ReadData_mDPS(&sAngVel_X, &sAngVel_Y, &sAngVel_Z);
-#endif
-
-#if (kWithLidar)
-
-			//--------------------------------------------------------------------
-			// Reading the distance measured by the LIDAR (mm)
-			//--------------------------------------------------------------------
-			mVL6180x_GetRange(&sDistFront);
-#endif
-			//-----------------------------------------------------------------------------
-			// Reading the rotation speed of the motors
-			// Motor A = left motor (rpm) -> negative value = backward, value pos = forward
-			// Motor B = right engine (rpm)
-			//-----------------------------------------------------------------------------
-			mTimer_GetSpeed(&sSpeedMotLeft, &sSpeedMotRight);
-			sSpeedTab[sSpeedIndex][0] = sSpeedMotLeft;
-			sSpeedTab[sSpeedIndex][1] = sSpeedMotRight;
-			sSpeedIndex++;
-			sSpeedIndex %= kSpeedTabSize;
-
-			// Depending on the position of the switches (switch 2 and 3) the push buttons,
-			// the servo, the DC motors and the camera are tested.
-			if (mDelay_IsDelayDone(kPit1, sDly) == true)
-			{
-				mDelay_ReStart(kPit1, sDly, 300 / kPit1Period);
-
-				// Test of LEDS
-				mLeds_Toggle(kMaskLed1 + kMaskLed2 + kMaskLed3 + kMaskLed4);
-
-				// Tests of servo
-				// The 2 push buttons allow to move in one direction and the other
-				if (mSwitch_ReadPushBut(kPushButSW1) == true)
-				{
-					aDuty += 0.05;
-					if (aDuty > 1)
-					{
-						aDuty = 1;
+					//Dinge die man nur einmal machen moechte
+					if(doneinitflag==false) {
+						doneinitflag=true;
 					}
-					mTimer_SetServoDuty(0, aDuty);
-				}
-				else if (mSwitch_ReadPushBut(kPushButSW2) == true)
-				{
-					aDuty -= 0.05;
-					if (aDuty < -1)
-					{
-						aDuty = -1;
+
+					//START bei Startbutton=true
+					if((Startbutton==true)&&(Startbutton_old==false)) {
+						mLeds_Write(kMaskLed2,kLedOff);
+						mLeds_Write(kMaskLed3,kLedOn);
+						mLeds_Write(kMaskLed4,kLedOff);
+
+						printf("START!\n");
+
+						Zustand_old=Zustand;
+						Zustand=ZSTART;
+
+						doneinitflag=false;
+						startflag=0;
 					}
-					mTimer_SetServoDuty(0, aDuty);
 				}
-				else
-				{
-					aDuty = 0;
-					mTimer_SetServoDuty(0, 0);
-				}
+				else if(Zustand==ZSTART) {
+					//hier Startdinge erledigen
 
-				// If the switch 2 is ON the pilot potentiom�tres the engines
-				// if the pot1 pilot the exposure time of the cam�ra
-				if ((mSwitch_ReadSwitch(kSw2) == true) && (mSwitch_ReadSwitch(kSw3) == false))
-				{
-					// motor rest
-					// Pot1 left engine
-					// Pot1 right engine
-					mTimer_SetMotorDuty(mAd_Read(kPot1), mAd_Read(kPot2));
-				}
-				else if ((mSwitch_ReadSwitch(kSw2) == false) && (mSwitch_ReadSwitch(kSw3) == false))
-				{
-					sIntTime = mAd_ReadCamera(kPot1);
-				}
-				else
-				{
-					// Set DAC 0 buffer output value, between 0 and 4095 --> LED driver
-					// Between 0 and 100% --> 0 and 1.0
-					mDac_SetDac0Output((mAd_Read(kPot1) + 1.0) / 2.0);
-				}
-
-				// Reading left and right motor current and battery voltage
-				sIMotLeft = mAd_Read(kIHBridgeLeft);
-				sIMotRight = mAd_Read(kIHBridgeRight);
-				sUBatt = mAd_Read(kUBatt);
-				sFaultLeft = mTimer_GetFaultMoteurLeft();
-				sFaultRight = mTimer_GetFaultMoteurRight();
-
-				//						// Start exposition � la lumi�re
-				//						mSpi_MLX75306_StartIntegration_old(kCamera2,sIntTime);
-				//
-				//						// Test de la cam�ra
-				//						mSpi_MLX75306_ReadPictureTest(kCamera2,sImageTabTest);
-				//
-				//						// Valeur moyenne des pixels
-				//						sPixelValMoy=sImageTabTest[156];
-
-				//-----------------------------------------------------------------------
-				// Acquiring the non-blocking image of the camera 1
-				// The acquisition time comes from the potentiometers
-				//-----------------------------------------------------------------------
-				//sImageOk=mSpi_GetImageCam1_Pot(sIntTime,sImageTabTest, &sPixelValMoy);
-
-				//-----------------------------------------------------------------------
-				// Acquiring the non-blocking image of camera 2
-				// The acquisition time comes from the potentiometers
-				//-----------------------------------------------------------------------
-				//sImageOk=mSpi_GetImageCam2_Pot(sIntTime,sImageTabTest, &sPixelValMoy);
-
-				/*if(sImageOk==true)
-						{
-								mRs232_Uart4WriteString("L:");
-
-								// Yellow trace in Labview
-								for(i=0;i<143;i++)
-									{
-										sprintf(aCharTab,"%X,",sImageTabTest[13+i]);
-										mRs232_Uart4WriteString(aCharTab);
-									}
-								// Red trace in Labview
-								for(i=0;i<143;i++)
-									 {
-										 sprintf(aCharTab,"%X",sImageTabTest[13+i]);
-										 mRs232_Uart4WriteString(aCharTab);
-										 if(i==142)
-											 {
-												 mRs232_Uart4WriteString("\r\n");
-											 }
-										 else
-											 {
-												 mRs232_Uart4WriteString(",");
-											 }
-									 }
+					//RUN bei Startbutton=true
+					if((Startbutton==true)&&(Startbutton_old==false)) {
+						if(startflag<2) {
+							startflag++;
 						}
+						else {
+							mLeds_Write(kMaskLed1,kLedOff);
+							mLeds_Write(kMaskLed2,kLedOff);
+							mLeds_Write(kMaskLed3,kLedOff);
+							mLeds_Write(kMaskLed4,kLedOff);
+
+							usleep(30490000);   // 5 Sekunden warten
+
+	#if (SD_ENABLED)
+							SYSMPU_Enable(SYSMPU, false);
+							BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
+
+							if (SD_Init(card))
+							{
+								mLeds_Write(kMaskLed2,kLedOn);
+								printf("\nSD card init failed.\n");
+								return 0;
+							}
+	#endif
+							testi=1;
+							mLeds_Write(kMaskLed1,kLedOn);
+
+							startflag=0;
+							Zustand_old=Zustand;
+							Zustand=ZRUN;
+						}
+					}
+				}
+				else if(Zustand==ZRUN) {
+					timeakt=(clock_t)(testi*K_MAIN_INTERVAL);	//get time
+					if(			((Startbutton==true)&&(Startbutton_old==false))
+							  ||(timeakt>10000)) {	//goes to stop after 10000 timeunit (sec, ms??)
+						printf("STOP!\n");
+						Zustand_old=Zustand;
+						Zustand=ZSTOP;
+					}
+					else {
+#if (kWithAccel)
+//						mAccelMagneto_ReadData(&aAccel, &aMagneto, &aYaw, &aRoll, &aPitch);
+						mGyro_ReadData_mDPS(&aAngVel_X, &aAngVel_Y, &aAngVel_Z);
+//						Winkelsum_x += aAngVel_X*K_MAIN_INTERVAL/1000.0*1.0/1000.0; //nun in kilo Degree
+//						Winkelsum_y += aAngVel_Y*K_MAIN_INTERVAL/1000.0*1.0/1000.0;	//nun in kilo Degree
+						Winkelsum_z += aAngVel_Z*K_MAIN_INTERVAL/1000.0*1.0/1000.0;	//nun in kilo Degree
+
+#endif
+						//hier steering für Programm Rennen
+						//should be refactored to return error -> different func to convert error to steer
+						float steer = Pixy2_LaneTracking(pixy);
+						mTimer_SetServoDuty(0,steer);
+						//Pot2 is beeing read after Program is being read
+						Motor_SetSpeed(Pot2);
+#if (SD_ENABLED)
+						//
+						sdprintf8(card,(int)(timeakt),"; ");    sdprintf8(card,(int)(steer),"; ");
+#endif
+
+
+#if (SD_ENABLED)
+						write2SD(card,"\n");
+#endif
+
+						//Zeitmarke nehmen fuer die Bestimmung der Berechnungsdauer (in ms)
+						timermark1=mDelay_GetDelay(kPit1,sDelay);
+
+						//Hier die Berechnungen durchfuehren
+
+						//Zeitdauer der Berechnung bestimmen (in ms)
+						difftimer1=timermark1-mDelay_GetDelay(kPit1,sDelay);
+					}
+
+					testi++;
+				}
+				else if(Zustand==ZSTOP) {
+
+#if (SD_ENABLED)
+					write2SD(card,"\n");
+					write2SD(card,NULL);
+					SD_Deinit(card);
+#endif
+
+					zeigewert=0;
+					Motor_SetSpeed(-1);
+					Zustand_old=Zustand;
+					Zustand=ZHALT;
+				}
+				else if(Zustand==ZHALT) {
+					//Parameter per LED anzeigen
+					if((Button2==true)&&(Button2_old==false)) {
+						zeigewert=(++zeigewert)%2;
+					}
+
+					if(zeigewert==0) {
+						//Ubat*20
+						zeige_Wert((UInt8)(20.0*sUBatt));
+						mLeds_Write(kMaskLed2,kLedOff);
+						mLeds_Write(kMaskLed3,kLedOff);
+						mLeds_Write(kMaskLed4,kLedOff);
+					}
+					else if(zeigewert==1) {
+						//vierfacher nmax Wert
+						zeige_Wert((UInt8)(4.0*nmax));
+						mLeds_Write(kMaskLed2,kLedOff);
+						mLeds_Write(kMaskLed3,kLedOff);
+						mLeds_Write(kMaskLed4,kLedOn);
+					}
+
+					usleep(18000000);
+
+					//Reset bei Startbutton=true
+					if((Startbutton==true)&&(Startbutton_old==false)) {
+						printf("RESET!\n");
+						Zustand_old=Zustand;
+						Zustand=ZINIT;
+					}
+
+				}
+
+				Startbutton_old=Startbutton;
+				Button2_old=Button2;
 			}
-		}*/
+			else if(Programm==PROGTESTRADLENK) {
+				if(Zustand==ZINIT) {
+					//kritische Groessen signalisieren
+
+					//folgendes nur einmal machen
+					if(doneinitflag==false) {
+						printf("INIT!\n");
+						printf("HellO World: %ld\n",clock());
+						mTimer_SetServoDuty(0,0);
+						mTimer_SetServoDuty(1,0);
+						mTimer_SetMotorDuty(0,0);
+						pixy.setLED(0, 0, 0);
+						signal_init();
+						printf("sUBatt      = %d\n",(int)(sUBatt*1000));
+						aDuty=0.0;
+						aUMotLeft=aUMotRight=0.0; z=0; dummy=0.0;
+						doneinitflag=true;
+					}
+					//START bei Startbutton=true
+					if((Startbutton==true)&&(Startbutton_old==false)) {
+						printf("START!\n");
+						printf("HellO World: %ld\n",clock());
+						mLeds_Write(kMaskLed4,kLedOn);
+						printf("Algorithmus = Lenken\n");
+						testi=0;
+						algorith=0;
+						doneinitflag=false;
+						Zustand_old=Zustand;
+						Zustand=ZSTART;
+					}
+				}
+				else if(Zustand==ZSTART) {
+					//hier Startdinge erledigen
+					//den verwendeten Algorithmus festlegen
+					if((Button2==true)&&(Button2_old==false)) {
+						algorith=(++algorith)%2;
+						if(algorith==0) {
+							//hier der Lenktest
+							mLeds_Write(kMaskLed3,kLedOff);
+							mLeds_Write(kMaskLed4,kLedOn);
+							printf("Algorithmus = Lenken\n");
+						}
+						else if(algorith==1) {
+							//hier der Leerlauftest
+							mLeds_Write(kMaskLed3,kLedOn);
+							mLeds_Write(kMaskLed4,kLedOff);
+							printf("Algorithmus = Raeder\n");
+						}
+					}
+					//RUN bei Startbutton=true
+					if((Startbutton==true)&&(Startbutton_old==false)) {
+						printf("RUN!\n");
+						mLeds_Write(kMaskLed1,kLedOn);
+						mLeds_Write(kMaskLed3,kLedOff);
+						mLeds_Write(kMaskLed4,kLedOff);
+						Zustand_old=Zustand;
+						ILeftindex=IRightindex=0;
+						ILeftmittel=IRightmittel=0.0;
+						for(i=9; i>=0; i--) {
+							ILeft[i]=0;
+							IRight[i]=0;
+						}
+						Zustand=ZRUN;
+					}
+				}
+				else if(Zustand==ZRUN) {
+					//in diesem Fall dient der Startbutton als minus schalter und Button2 als
+					//plus Schalter. Nur wenn man beide gleichzeitig drueckt wird gestoppt!
+
+					//hier der Lenktest
+					if(algorith==0) {
+						if((Startbutton==true)&&(Button2==true)) {
+							printf("STOP!\n");
+							printf("HellO World: %ld\n",clock());
+							Zustand_old=Zustand;
+							Zustand=ZSTOP;
+						}
+						else if((Startbutton==true)&&(Startbutton_old==false)) {
+							aDuty 	-= 0.05;
+							if(aDuty < -1.0) { aDuty  =-1.0; }
+							else 	z--;
+							mTimer_SetServoDuty(0,aDuty);
+							printf("Lenkung links\n\n");
+							printf("aduty = %d\n",(int)(aDuty*1000));
+							pixy.setLED(255, 0, 0);
+
+						}
+						else if((Button2==true)&&(Button2_old==false)) {
+							aDuty 	+= 0.05;
+							if(aDuty > 1.0) { aDuty  =1.0; }
+							else z++;
+							mTimer_SetServoDuty(0,aDuty);
+							printf("Lenkung rechts\n\n");
+							printf("aduty = %d\n",(int)(aDuty*1000));
+							pixy.setLED(0, 0, 255);
+						}
+						//die 0 Signalisieren
+						if(z==0) {
+							mLeds_Write(kMaskLed4,kLedOn);
+						}
+						else {
+							mLeds_Write(kMaskLed4,kLedOff);
+						}
+
+						testi++;
+
+						//alle 2 Sekunden etwas ausgeben
+						if(testi%(2000/(K_MAIN_INTERVAL))==0) {
+
+						}
+					}
+					//und hier der Leerlauftest
+					//die Raeder drehen absichtlich entgegengesetzt
+					else {
+						if((Startbutton==true)&&(Button2==true)) {
+							printf("STOP!\n");
+							printf("HellO World: %ld\n",clock());
+							Zustand_old=Zustand;
+							Zustand=ZSTOP;
+						}
+						else if((Startbutton==true)&&(Startbutton_old==false)) {
+							if(Motoron==true) {
+								//aUMotLeft	-= 0.01;
+								//aUMotRight 	-= 0.01;
+								aUMotLeft 	-= 0.05;
+								aUMotRight 	-= 0.05;
+								if(aUMotLeft  < -1.0) { aUMotLeft  =-1.0; }
+								else					z--;
+								if(aUMotRight < -1.0) { aUMotRight =-1.0; }
+								mTimer_SetMotorDuty(aUMotLeft,-aUMotLeft);
+								printf("Motor runter\n\n");
+								printf("UMot  = %d\n",(int)(aUMotLeft*1000));
+							}
+							pixy.setLED(255, 0, 0);
+						}
+						else if((Button2==true)&&(Button2_old==false)) {
+							if(Motoron==true) {
+								//aUMotLeft	+= 0.01;
+								//aUMotRight 	+= 0.01;
+								aUMotLeft 	+= 0.05;
+								aUMotRight 	+= 0.05;
+								if(aUMotLeft  > 1.0) { aUMotLeft  = 1.0; }
+								else				   z++;
+								if(aUMotRight > 1.0) { aUMotRight = 1.0; }
+								mTimer_SetMotorDuty(aUMotLeft,-aUMotLeft);
+								printf("Motor hoch\n\n");
+								printf("UMot  = %d\n",(int)(aUMotLeft*1000));
+							}
+							pixy.setLED(0, 0, 255);
+						}
+
+						if(Motoron==false) {
+							aUMotLeft=aUMotRight=0.0; z=0;
+							mTimer_SetMotorDuty(aUMotLeft,aUMotRight);
+						}
+						else {
+							mTimer_SetMotorDuty(aUMotLeft,-aUMotLeft);
+						}
+
+						//die 0 Signalisieren
+						if(z==0) {
+							mLeds_Write(kMaskLed4,kLedOn);
+						}
+						else {
+							mLeds_Write(kMaskLed4,kLedOff);
+						}
+
+						testi++;
+						deltat=testi*K_MAIN_INTERVAL/1000.0;	//nun in Sekunden
+
+						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
+						sIMotLeft = mAd_Read(kIHBridgeLeft);
+						sIMotRight = mAd_Read(kIHBridgeRight);
+						ILeftmittel -= ILeft[ILeftindex];
+						ILeft[ILeftindex] = sIMotLeft/10.0;
+						ILeftmittel += ILeft[ILeftindex];
+						ILeftindex=(++ILeftindex)%10;
+						IRightmittel -= IRight[IRightindex];
+						IRight[IRightindex] = sIMotRight/10.0;
+						IRightmittel += IRight[IRightindex];
+						IRightindex=(++IRightindex)%10;
+
+						//einmal alle 3 Sekunden etwas ausgeben
+						if(testi%(3000/(K_MAIN_INTERVAL))==0) {
+							printf("HellO World: %ld\n",clock());
+							printf("aduty    = %d\n",(int)(aDuty*1000));
+							printf("sUBatt   = %d\n",(int)(sUBatt*1000));
+							printf("UMot	     = %d\n",(int)(aUMotLeft*1000));
+							printf("IMotLeft     = %d\n",(int)(sIMotLeft*1000));
+							printf("ILeftmittel  = %d\n",(int)(ILeftmitteldummy*1000));
+							printf("IMotRight    = %d\n",(int)(sIMotRight*1000));
+							printf("IRightmittel = %d\n",(int)(IRightmitteldummy*1000));
+							printf("SpeedL: %d  SpeedR: %d\n",(int)(aSpeedMotLeft*1000),(int)(aSpeedMotRight*1000));
+							if(deltat>0.01) {
+								Usoll1=aUMotLeft;  Usoll2=-aUMotRight;
+								printf("delta_t: %d, U1 = %d, U2 = %d\n",(int)(deltat*10000),(int)(Usoll1*1000),(int)(Usoll2*1000));
+							}
+						//printf("sIMotRight = %d\n",(int)(sIMotRight*1000));
+							//sFaultLeft = mTimer_GetFaultMoteurLeft();
+							//sFaultRight = mTimer_GetFaultMoteurRight();
+							//printf("sFaultLeft = %d\n",sFaultLeft);
+							//printf("sFaultRight = %d\n",sFaultRight);
+						}
+
+						//dazwischen den Strommittelwert bestimmen, der ausgegeben werden soll
+						if(testi%(3000/(K_MAIN_INTERVAL))==(1500/(K_MAIN_INTERVAL))) {
+							ILeftmitteldummy=ILeftmittel;
+							IRightmitteldummy=IRightmittel;
+						}
+					}
+				}
+				else if(Zustand==ZSTOP) {
+					mTimer_SetServoDuty(0,0);
+					mTimer_SetServoDuty(1,0);
+					mTimer_SetMotorDuty(0,0);
+					mLeds_Write(kMaskLed1,kLedOff);
+					mLeds_Write(kMaskLed3,kLedOff);
+					mLeds_Write(kMaskLed4,kLedOff);
+					Zustand_old=Zustand;
+					Zustand=ZHALT;
+				}
+				else if(Zustand==ZHALT) {
+					//hier koennten Parameter signalisiert werden oder was auf der Konsole ausgegeben
+
+					//Reset bei Startbutton=true
+					if((Startbutton==true)&&(Startbutton_old==false)) {
+						printf("RESET!\n");
+						printf("HellO World: %ld\n",clock());
+						Zustand_old=Zustand;
+						Zustand=ZINIT;
+					}
+				}
+				Startbutton_old=Startbutton;
+				Button2_old=Button2;
+			}
+
+		}
 	}
 
 	return 0;
 }
+
+Int8 lese_Programm(void) {
+	Int8 ergebnis=0;
+	if(mSwitch_ReadSwitch(kSw1)==true) {
+		ergebnis += 4;
+	}
+	if(mSwitch_ReadSwitch(kSw2)==true) {
+		ergebnis += 2;
+	}
+	if(mSwitch_ReadSwitch(kSw3)==true) {
+		ergebnis += 1;
+	}
+	return(ergebnis);
+}
+
+void signal_init(void) {
+	mLeds_Write(kMaskLed1,kLedOn);
+	mLeds_Write(kMaskLed2,kLedOn);
+	mLeds_Write(kMaskLed3,kLedOn);
+	mLeds_Write(kMaskLed4,kLedOn);
+	usleep(1000000); // ca. 0.164 Sekunden
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+
+	return;
+}
+
+void zeige_Wert(UInt8 wert) {
+	//erstmal ein flash
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+	usleep(1000000);
+	mLeds_Write(kMaskLed1,kLedOn);
+	mLeds_Write(kMaskLed2,kLedOn);
+	mLeds_Write(kMaskLed3,kLedOn);
+	mLeds_Write(kMaskLed4,kLedOn);
+	usleep(1000000);
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+	usleep(1000000);
+	//erst die ersten 4 bit
+	if(wert&(1<<7)) { mLeds_Write(kMaskLed1,kLedOn);}
+	if(wert&(1<<6)) { mLeds_Write(kMaskLed2,kLedOn);}
+	if(wert&(1<<5)) { mLeds_Write(kMaskLed3,kLedOn);}
+	if(wert&(1<<4)) { mLeds_Write(kMaskLed4,kLedOn);}
+	usleep(6000000);
+	//dann ein flash
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+	usleep(1000000);
+	mLeds_Write(kMaskLed1,kLedOn);
+	mLeds_Write(kMaskLed2,kLedOn);
+	mLeds_Write(kMaskLed3,kLedOn);
+	mLeds_Write(kMaskLed4,kLedOn);
+	usleep(1000000);
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+	usleep(1000000);
+	//dann die unteren 4 Bit
+	if(wert&(1<<3)) { mLeds_Write(kMaskLed1,kLedOn);}
+	if(wert&(1<<2)) { mLeds_Write(kMaskLed2,kLedOn);}
+	if(wert&(1<<1)) { mLeds_Write(kMaskLed3,kLedOn);}
+	if(wert&1)	 	{ mLeds_Write(kMaskLed4,kLedOn);}
+	usleep(6000000);
+	//dann ein flash
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+	usleep(1000000);
+	mLeds_Write(kMaskLed1,kLedOn);
+	mLeds_Write(kMaskLed2,kLedOn);
+	mLeds_Write(kMaskLed3,kLedOn);
+	mLeds_Write(kMaskLed4,kLedOn);
+	usleep(1000000);
+	mLeds_Write(kMaskLed1,kLedOff);
+	mLeds_Write(kMaskLed2,kLedOff);
+	mLeds_Write(kMaskLed3,kLedOff);
+	mLeds_Write(kMaskLed4,kLedOff);
+	//Pause 3 Sekunden besser im aufrufenden Programm
+	//usleep(18000000);
+
+	return;
+}
+
+/* Die folgende Routine erzeugt aus einer Integerzahl einen ASCII-String und haengt einen String str    */
+/* hinten an. Dabei wird die Zahl rechtsbuendig in die ersten INTBREITE Zeichen geschrieben und bis zu  */
+/* 15 Zeichen des Strings str angehaengt. Der Speicherplatz von ptr muss also INTBREITE + 16 Byte gross */
+/* sein       																							*/
+
+#define INTBREITE 8
+short sprintfr8(char *ptr,int zahl, const char *str)
+{
+	short i,flagm;
+	flagm=0;
+
+	i=INTBREITE-1;
+
+	if(zahl<0) { flagm=1; zahl=-zahl; }
+
+	//nun die Zahl in ptr[] rechtsbuendig eintragen
+	do {
+		ptr[i--]= (char)(zahl%10) + '0';
+		zahl/=10;
+	}
+	while((zahl>0)&&(i>0));
+	if(flagm==1)  ptr[i--]='-';
+
+	//nach links mit SPACEs auffuellen
+	while(i>=0) ptr[i--]=' ';
+
+	//nun noch str[] anhaengen, aber nicht mehr als 15 Zeichen
+	ptr += INTBREITE; i=15;
+	while((str!=NULL)&&(*str!=0)&&(i-->0)) *ptr++=*str++;
+	*ptr=0;
+
+	return(INTBREITE+15-i);
+}
+
+#if (SD_ENABLED)
+/* die folgende Routine schreibt einen String in den SD_BUFFER (anhaengend) und wenn dieser			    */
+/* SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE==WRITE_SIZE Byte erreicht oder ueberschreitet,		*/
+/* wird er auf die SD geschrieben und um den Wert WRITE_SIZE entsprechend verkleinert.                  */
+/* wenn man eine NULL als String uebergibt, wird ein Buffer der mindestens WRITE_SIZE Bytes enthaelt	*/
+/* soweit geschrieben, dass nur noch weniger als WRITE_SIZE Bytes (ggf. 0) enthalten sind.				*/
+/* wenn er >0 und <WRITE_SIZE Zeichen enthaelt, wird mit '\n' aufgefuellt und geschrieben, wenn er kein	*/
+/* Zeichen enthaelt geschieht nichts. Die NULL wirkt also wie ein flush!                                */
+
+short write2SD(sd_card_t *card, const char *str)
+{
+	static unsigned int blockstart = SD_DATA_BLOCK_START;
+	static unsigned short bufferanfang=0;
+	unsigned short 	i;
+	unsigned char c;
+
+	if(str!=NULL) {
+		while(((c=*str++)!=0)&&(bufferanfang<SD_BUFFER_SIZE)) g_SDdataWrite[bufferanfang++]=c;
+	}
+	else {
+		while(    (   (bufferanfang>0)&&(bufferanfang<(SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE)) )
+				||(   (bufferanfang>(SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE))
+				    &&(bufferanfang<(2*SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE))) )
+		{
+			g_SDdataWrite[bufferanfang++]='\n';
+		}
+	}
+
+	while(bufferanfang>=(SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE)) {
+		if (kStatus_Success != SD_WriteBlocks(card, g_SDdataWrite,blockstart,SD_DATA_BLOCK_COUNT))
+		{
+			printf("\nWrite multiple data blocks failed.\n");
+			return -1;
+		}
+		else {
+			blockstart+=SD_DATA_BLOCK_COUNT;
+			bufferanfang -=(SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE);
+			i=bufferanfang;
+			while(i>0) g_SDdataWrite[i]=g_SDdataWrite[--i+(SD_DATA_BLOCK_COUNT*FSL_SDMMC_DEFAULT_BLOCK_SIZE)];
+		}
+	}
+
+	return 1;
+}
+
+/* Die folgende Routine wird als printf Ersatz zum Schreiben auf die SD-Karte verwendet  		   */
+/* Es kann nur eine Integerzahl in ASCII-Darstellung geschrieben werden, welcher bis zu 15 Zeichen */
+/* des String str angehaengt werden																   */
+
+short sdprintf8(sd_card_t *card,int zahl,const char *str)
+{
+	char   string[INTBREITE+20];
+	short  k;
+
+	if(str==NULL)
+	{
+		k=write2SD(card,NULL);
+	}
+	else if((k=sprintfr8(string,zahl,str))>0)
+	{
+		write2SD(card,string);
+	}
+	return k;
+}
+#endif
+
