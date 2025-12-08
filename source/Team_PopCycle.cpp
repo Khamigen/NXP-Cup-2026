@@ -111,10 +111,6 @@ static bool Button2,Button2_old;
 static bool Motoron;
 static float Pot1,Pot2;
 
-// Table containing the image of the digital camera,
-static UInt16 sImage[106];
-static Int16 diffImage[106];
-
 //SD-card buffer Sachen
 #if(SD_ENABLED)
 
@@ -138,19 +134,8 @@ float Sabstand=0.06;	//Schwerpunktabstand vor Hinterachse in Meter
 float Kamerahoehe=0.4; //in Meter ueber dem Boden
 float Radradius=0.03;	//in Meter
 
-// Measurement of the accelerometer and the magnetometer
-static SRAWDATAEnum sAccel;   // in g
-static SRAWDATAEnum sMagneto; // in micro teslas
 
-// Measurement of motor current and battery voltage
-static float sIMotLeft;
-static float sIMotRight;
-static float sUBatt;
-static bool sFaultLeft;
-static bool sFaultRight;
 
-// Distance measured by the LIDAR in mm
-static UInt8 sDistFront;
 
 Int8 lese_Programm(void);
 short sprintfr8(char *ptr,int zahl, const char *str);
@@ -222,9 +207,6 @@ int main(void)
 	Button2=false;
 	Motoron=false;
 
-#if (kWithLidar)
-	UInt8 aDistFront;
-#endif
 
 #if (SD_ENABLED)
 	BOARD_InitSDPins();
@@ -284,39 +266,6 @@ int main(void)
 
 	//Motor init
 	Motor_Init();
-
-	// Lidar --> I2C
-#if (kWithLidar)
-	mVL6180x_Setup();
-	mVL6180x_Open();
-	mVL6180x_StartRange();
-#endif
-
-	// SPI0 --> camera SPI --> reset + idle command
-	//mSpi_MLX75306_Reset();
-
-	//--------------------------------------------------------------------
-	// Init and calibration of accelerometer and magnetometer
-	//--------------------------------------------------------------------
-#if (kWithAccel)
-
-	// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	// !!! The calibration of the magnetometer takes almost 1mn and you have
-	// to turn the car in all directions during this time of init
-	// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	// Init of FXOS8700CQ
-	//mAccelMagneto_Init();
-	// Calibration of the offset of the accelerometer
-	//mAccelMagneto_Accel_Calibration();
-	// Calibration of the offset magnetometer
-	//mAccelMagneto_Mag_Calibration();
-
-	// Init of FXAS21002C
-	mGyro_Init();
-	// Calibration of the gyro offset
-	mGyro_Calibration();
-#endif
 
 	sDelay = mDelay_GetDelay(kPit1, K_MAIN_INTERVAL);
 	//PRINTF("Hello World\n");
@@ -430,14 +379,7 @@ int main(void)
 						Zustand=ZSTOP;
 					}
 					else {
-#if (kWithAccel)
-//						mAccelMagneto_ReadData(&aAccel, &aMagneto, &aYaw, &aRoll, &aPitch);
-						mGyro_ReadData_mDPS(&aAngVel_X, &aAngVel_Y, &aAngVel_Z);
-//						Winkelsum_x += aAngVel_X*K_MAIN_INTERVAL/1000.0*1.0/1000.0; //nun in kilo Degree
-//						Winkelsum_y += aAngVel_Y*K_MAIN_INTERVAL/1000.0*1.0/1000.0;	//nun in kilo Degree
-						Winkelsum_z += aAngVel_Z*K_MAIN_INTERVAL/1000.0*1.0/1000.0;	//nun in kilo Degree
 
-#endif
 						//hier steering für Programm Rennen
 						//should be refactored to return error -> different func to convert error to steer
 						float steer = Pixy2_LaneTracking(pixy);
