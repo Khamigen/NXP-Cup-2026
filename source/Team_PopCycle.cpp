@@ -33,6 +33,7 @@
  * @file    NXPCUP-MICROE-2021.cpp
  * @brief   Application entry point.
  */
+#define SD_ENABLED 1
 
 
 extern "C"
