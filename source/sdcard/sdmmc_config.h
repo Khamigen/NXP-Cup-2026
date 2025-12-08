@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
+#include "config.h"
 #ifndef _SDMMC_CONFIG_H_
 #define _SDMMC_CONFIG_H_
 
