@@ -33,10 +33,12 @@
  * @file    NXPCUP-MICROE-2021.cpp
  * @brief   Application entry point.
  */
-#define SD_ENABLED 1
+
 
 extern "C"
 {
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -307,7 +309,6 @@ int main(void)
 			Pot1=mAd_Read(kPot1);
 			Pot2=mAd_Read(kPot2);
 			Motoron=mSwitch_ReadSwitch(kSw4);
-			sUBatt = mAd_Read(kUBatt);
 
 			//jetzt die Programme durchgehen
 			//Die Zustaende werden dann in jedem Programm beruecksichtigt
@@ -429,11 +430,6 @@ int main(void)
 					}
 
 					if(zeigewert==0) {
-						//Ubat*20
-						zeige_Wert((UInt8)(20.0*sUBatt));
-						mLeds_Write(kMaskLed2,kLedOff);
-						mLeds_Write(kMaskLed3,kLedOff);
-						mLeds_Write(kMaskLed4,kLedOff);
 					}
 					else if(zeigewert==1) {
 						//vierfacher nmax Wert
@@ -470,7 +466,6 @@ int main(void)
 						mTimer_SetMotorDuty(0,0);
 						pixy.setLED(0, 0, 0);
 						signal_init();
-						printf("sUBatt      = %d\n",(int)(sUBatt*1000));
 						aDuty=0.0;
 						aUMotLeft=aUMotRight=0.0; z=0; dummy=0.0;
 						doneinitflag=true;
@@ -625,31 +620,10 @@ int main(void)
 						}
 
 						testi++;
-						deltat=testi*K_MAIN_INTERVAL/1000.0;	//nun in Sekunden
-
-						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-						sIMotLeft = mAd_Read(kIHBridgeLeft);
-						sIMotRight = mAd_Read(kIHBridgeRight);
-						ILeftmittel -= ILeft[ILeftindex];
-						ILeft[ILeftindex] = sIMotLeft/10.0;
-						ILeftmittel += ILeft[ILeftindex];
-						ILeftindex=(++ILeftindex)%10;
-						IRightmittel -= IRight[IRightindex];
-						IRight[IRightindex] = sIMotRight/10.0;
-						IRightmittel += IRight[IRightindex];
-						IRightindex=(++IRightindex)%10;
 
 						//einmal alle 3 Sekunden etwas ausgeben
 						if(testi%(3000/(K_MAIN_INTERVAL))==0) {
-							printf("HellO World: %ld\n",clock());
-							printf("aduty    = %d\n",(int)(aDuty*1000));
-							printf("sUBatt   = %d\n",(int)(sUBatt*1000));
-							printf("UMot	     = %d\n",(int)(aUMotLeft*1000));
-							printf("IMotLeft     = %d\n",(int)(sIMotLeft*1000));
-							printf("ILeftmittel  = %d\n",(int)(ILeftmitteldummy*1000));
-							printf("IMotRight    = %d\n",(int)(sIMotRight*1000));
-							printf("IRightmittel = %d\n",(int)(IRightmitteldummy*1000));
-							printf("SpeedL: %d  SpeedR: %d\n",(int)(aSpeedMotLeft*1000),(int)(aSpeedMotRight*1000));
+
 							if(deltat>0.01) {
 								Usoll1=aUMotLeft;  Usoll2=-aUMotRight;
 								printf("delta_t: %d, U1 = %d, U2 = %d\n",(int)(deltat*10000),(int)(Usoll1*1000),(int)(Usoll2*1000));
