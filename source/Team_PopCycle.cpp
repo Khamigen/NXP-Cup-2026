@@ -33,7 +33,7 @@
  * @file    NXPCUP-MICROE-2021.cpp
  * @brief   Application entry point.
  */
-#define SD_ENABLED 1
+
 
 
 extern "C"
@@ -391,7 +391,6 @@ int main(void)
 			Pot2=mAd_Read(kPot2);
 			Motoron=mSwitch_ReadSwitch(kSw4);
 
-
 			//jetzt die Programme durchgehen
 			//Die Zustaende werden dann in jedem Programm beruecksichtigt
 
@@ -530,6 +529,7 @@ int main(void)
 										mTimer_SetServoDuty(0,steer);
 										usleep(3049000);   // 0.5 Sekunden warten
 
+
 										steer = 0.2;
 										mTimer_SetServoDuty(0,steer);
 										usleep(3049000);   // 0.5 Sekunden warten
@@ -583,6 +583,7 @@ int main(void)
 					#endif
 											testi=1;
 											mLeds_Write(kMaskLed1,kLedOn);
+
 
 											startflag=0;
 											Zustand_old=Zustand;
