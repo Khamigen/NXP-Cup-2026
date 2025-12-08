@@ -115,10 +115,6 @@ static bool Button2,Button2_old;
 static bool Motoron;
 static float Pot1,Pot2;
 
-// Table containing the image of the digital camera,
-static UInt16 sImage[106];
-static Int16 diffImage[106];
-
 //SD-card buffer Sachen
 #if(SD_ENABLED)
 
@@ -142,9 +138,6 @@ float Sabstand=0.06;	//Schwerpunktabstand vor Hinterachse in Meter
 float Kamerahoehe=0.4; //in Meter ueber dem Boden
 float Radradius=0.03;	//in Meter
 
-// Measurement of the accelerometer and the magnetometer
-static SRAWDATAEnum sAccel;   // in g
-static SRAWDATAEnum sMagneto; // in micro teslas
 
 //SD-card buffer Sachen
 #if(SD_ENABLED)
@@ -198,6 +191,7 @@ short write2SD(sd_card_t *card, const char *str);
 short sdprintf8(sd_card_t *card,int zahl,const char *str);
 void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
 #endif
+
 
 Int8 lese_Programm(void);
 short sprintfr8(char *ptr,int zahl, const char *str);
@@ -343,7 +337,6 @@ int main(void)
 
 	//Motor init
 	Motor_Init();
-
 
 	sDelay = mDelay_GetDelay(kPit1, K_MAIN_INTERVAL);
 	//PRINTF("Hello World\n");
