@@ -168,7 +168,9 @@ int main(void)
 	bool doneinitflag;
 	Int16 algorith,startflag,zeigewert,testi;
 
+
 	//Werte die gesetzt werden
+	float steer;
 	float aDuty;
 	float aUMotLeft,aUMotRight;
 	// Measuring speed
@@ -319,6 +321,15 @@ int main(void)
 
 					//Dinge die man nur einmal machen moechte
 					if(doneinitflag==false) {
+						steer = -0.2;
+						mTimer_SetServoDuty(0,steer);
+						usleep(3049000);   // 0.5 Sekunden warten
+
+						steer = 0.2;
+						mTimer_SetServoDuty(0,steer);
+						usleep(3049000);   // 9.5 Sekunden warten
+
+
 						doneinitflag=true;
 					}
 
@@ -385,13 +396,20 @@ int main(void)
 
 						//hier steering für Programm Rennen
 						//should be refactored to return error -> different func to convert error to steer
-						float steer = Pixy2_LaneTracking(pixy);
+
+						steer = Pixy2_LaneTracking(pixy);
+						if(steer == 0){
+							mLeds_Write(kMaskLed4, kLedOn);
+						}else if(steer != 0){
+							mLeds_Write(kMaskLed4, kLedOff);
+						};
+
 						mTimer_SetServoDuty(0,steer);
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
 #if (SD_ENABLED)
 						//
-						sdprintf8(card,(int)(timeakt),"; ");    sdprintf8(card,(int)(steer),"; ");
+						sdprintf8(card,(int)(timeakt),"; ");    sdprintf8(card,(int)(steer * 1000),"; ");	//float nach int indem man um faktor 1000 vergrößert
 #endif
 
 
@@ -450,219 +468,6 @@ int main(void)
 
 				}
 
-				Startbutton_old=Startbutton;
-				Button2_old=Button2;
-			}
-			else if(Programm==PROGTESTRADLENK) {
-				if(Zustand==ZINIT) {
-					//kritische Groessen signalisieren
-
-					//folgendes nur einmal machen
-					if(doneinitflag==false) {
-						printf("INIT!\n");
-						printf("HellO World: %ld\n",clock());
-						mTimer_SetServoDuty(0,0);
-						mTimer_SetServoDuty(1,0);
-						mTimer_SetMotorDuty(0,0);
-						pixy.setLED(0, 0, 0);
-						signal_init();
-						aDuty=0.0;
-						aUMotLeft=aUMotRight=0.0; z=0; dummy=0.0;
-						doneinitflag=true;
-					}
-					//START bei Startbutton=true
-					if((Startbutton==true)&&(Startbutton_old==false)) {
-						printf("START!\n");
-						printf("HellO World: %ld\n",clock());
-						mLeds_Write(kMaskLed4,kLedOn);
-						printf("Algorithmus = Lenken\n");
-						testi=0;
-						algorith=0;
-						doneinitflag=false;
-						Zustand_old=Zustand;
-						Zustand=ZSTART;
-					}
-				}
-				else if(Zustand==ZSTART) {
-					//hier Startdinge erledigen
-					//den verwendeten Algorithmus festlegen
-					if((Button2==true)&&(Button2_old==false)) {
-						algorith=(++algorith)%2;
-						if(algorith==0) {
-							//hier der Lenktest
-							mLeds_Write(kMaskLed3,kLedOff);
-							mLeds_Write(kMaskLed4,kLedOn);
-							printf("Algorithmus = Lenken\n");
-						}
-						else if(algorith==1) {
-							//hier der Leerlauftest
-							mLeds_Write(kMaskLed3,kLedOn);
-							mLeds_Write(kMaskLed4,kLedOff);
-							printf("Algorithmus = Raeder\n");
-						}
-					}
-					//RUN bei Startbutton=true
-					if((Startbutton==true)&&(Startbutton_old==false)) {
-						printf("RUN!\n");
-						mLeds_Write(kMaskLed1,kLedOn);
-						mLeds_Write(kMaskLed3,kLedOff);
-						mLeds_Write(kMaskLed4,kLedOff);
-						Zustand_old=Zustand;
-						ILeftindex=IRightindex=0;
-						ILeftmittel=IRightmittel=0.0;
-						for(i=9; i>=0; i--) {
-							ILeft[i]=0;
-							IRight[i]=0;
-						}
-						Zustand=ZRUN;
-					}
-				}
-				else if(Zustand==ZRUN) {
-					//in diesem Fall dient der Startbutton als minus schalter und Button2 als
-					//plus Schalter. Nur wenn man beide gleichzeitig drueckt wird gestoppt!
-
-					//hier der Lenktest
-					if(algorith==0) {
-						if((Startbutton==true)&&(Button2==true)) {
-							printf("STOP!\n");
-							printf("HellO World: %ld\n",clock());
-							Zustand_old=Zustand;
-							Zustand=ZSTOP;
-						}
-						else if((Startbutton==true)&&(Startbutton_old==false)) {
-							aDuty 	-= 0.05;
-							if(aDuty < -1.0) { aDuty  =-1.0; }
-							else 	z--;
-							mTimer_SetServoDuty(0,aDuty);
-							printf("Lenkung links\n\n");
-							printf("aduty = %d\n",(int)(aDuty*1000));
-							pixy.setLED(255, 0, 0);
-
-						}
-						else if((Button2==true)&&(Button2_old==false)) {
-							aDuty 	+= 0.05;
-							if(aDuty > 1.0) { aDuty  =1.0; }
-							else z++;
-							mTimer_SetServoDuty(0,aDuty);
-							printf("Lenkung rechts\n\n");
-							printf("aduty = %d\n",(int)(aDuty*1000));
-							pixy.setLED(0, 0, 255);
-						}
-						//die 0 Signalisieren
-						if(z==0) {
-							mLeds_Write(kMaskLed4,kLedOn);
-						}
-						else {
-							mLeds_Write(kMaskLed4,kLedOff);
-						}
-
-						testi++;
-
-						//alle 2 Sekunden etwas ausgeben
-						if(testi%(2000/(K_MAIN_INTERVAL))==0) {
-
-						}
-					}
-					//und hier der Leerlauftest
-					//die Raeder drehen absichtlich entgegengesetzt
-					else {
-						if((Startbutton==true)&&(Button2==true)) {
-							printf("STOP!\n");
-							printf("HellO World: %ld\n",clock());
-							Zustand_old=Zustand;
-							Zustand=ZSTOP;
-						}
-						else if((Startbutton==true)&&(Startbutton_old==false)) {
-							if(Motoron==true) {
-								//aUMotLeft	-= 0.01;
-								//aUMotRight 	-= 0.01;
-								aUMotLeft 	-= 0.05;
-								aUMotRight 	-= 0.05;
-								if(aUMotLeft  < -1.0) { aUMotLeft  =-1.0; }
-								else					z--;
-								if(aUMotRight < -1.0) { aUMotRight =-1.0; }
-								mTimer_SetMotorDuty(aUMotLeft,-aUMotLeft);
-								printf("Motor runter\n\n");
-								printf("UMot  = %d\n",(int)(aUMotLeft*1000));
-							}
-							pixy.setLED(255, 0, 0);
-						}
-						else if((Button2==true)&&(Button2_old==false)) {
-							if(Motoron==true) {
-								//aUMotLeft	+= 0.01;
-								//aUMotRight 	+= 0.01;
-								aUMotLeft 	+= 0.05;
-								aUMotRight 	+= 0.05;
-								if(aUMotLeft  > 1.0) { aUMotLeft  = 1.0; }
-								else				   z++;
-								if(aUMotRight > 1.0) { aUMotRight = 1.0; }
-								mTimer_SetMotorDuty(aUMotLeft,-aUMotLeft);
-								printf("Motor hoch\n\n");
-								printf("UMot  = %d\n",(int)(aUMotLeft*1000));
-							}
-							pixy.setLED(0, 0, 255);
-						}
-
-						if(Motoron==false) {
-							aUMotLeft=aUMotRight=0.0; z=0;
-							mTimer_SetMotorDuty(aUMotLeft,aUMotRight);
-						}
-						else {
-							mTimer_SetMotorDuty(aUMotLeft,-aUMotLeft);
-						}
-
-						//die 0 Signalisieren
-						if(z==0) {
-							mLeds_Write(kMaskLed4,kLedOn);
-						}
-						else {
-							mLeds_Write(kMaskLed4,kLedOff);
-						}
-
-						testi++;
-
-						//einmal alle 3 Sekunden etwas ausgeben
-						if(testi%(3000/(K_MAIN_INTERVAL))==0) {
-
-							if(deltat>0.01) {
-								Usoll1=aUMotLeft;  Usoll2=-aUMotRight;
-								printf("delta_t: %d, U1 = %d, U2 = %d\n",(int)(deltat*10000),(int)(Usoll1*1000),(int)(Usoll2*1000));
-							}
-						//printf("sIMotRight = %d\n",(int)(sIMotRight*1000));
-							//sFaultLeft = mTimer_GetFaultMoteurLeft();
-							//sFaultRight = mTimer_GetFaultMoteurRight();
-							//printf("sFaultLeft = %d\n",sFaultLeft);
-							//printf("sFaultRight = %d\n",sFaultRight);
-						}
-
-						//dazwischen den Strommittelwert bestimmen, der ausgegeben werden soll
-						if(testi%(3000/(K_MAIN_INTERVAL))==(1500/(K_MAIN_INTERVAL))) {
-							ILeftmitteldummy=ILeftmittel;
-							IRightmitteldummy=IRightmittel;
-						}
-					}
-				}
-				else if(Zustand==ZSTOP) {
-					mTimer_SetServoDuty(0,0);
-					mTimer_SetServoDuty(1,0);
-					mTimer_SetMotorDuty(0,0);
-					mLeds_Write(kMaskLed1,kLedOff);
-					mLeds_Write(kMaskLed3,kLedOff);
-					mLeds_Write(kMaskLed4,kLedOff);
-					Zustand_old=Zustand;
-					Zustand=ZHALT;
-				}
-				else if(Zustand==ZHALT) {
-					//hier koennten Parameter signalisiert werden oder was auf der Konsole ausgegeben
-
-					//Reset bei Startbutton=true
-					if((Startbutton==true)&&(Startbutton_old==false)) {
-						printf("RESET!\n");
-						printf("HellO World: %ld\n",clock());
-						Zustand_old=Zustand;
-						Zustand=ZINIT;
-					}
-				}
 				Startbutton_old=Startbutton;
 				Button2_old=Button2;
 			}
