@@ -91,7 +91,7 @@ extern "C"
 
 //hier 8 Programme = DIP Schalter 1 bis 3
 #define	PROGRENNEN 		 0
-#define PROGKAMERA	 	 1
+#define PROGSDDEBUG	 	 1
 #define PROGTESTSPECIAL	 2
 #define PROGTESTRADLENK	 3
 #define PROGTESTBESCHL	 4
@@ -142,7 +142,7 @@ float Radradius=0.03;	//in Meter
 
 Int8 lese_Programm(void);
 short sprintfr8(char *ptr,int zahl, const char *str);
-void zeige_Wert(UInt8 wert);
+void zeige_Wert(int wert);
 void signal_init(void);
 
 #if (SD_ENABLED)
@@ -168,6 +168,8 @@ int main(void)
 	bool doneinitflag;
 	Int16 algorith,startflag,zeigewert,testi;
 
+	//ErrorCode for ErrorHandling
+	int errorCode = 0;
 
 	//Werte die gesetzt werden
 	float steer;
@@ -277,14 +279,24 @@ int main(void)
 	printf("HellO World: %ld %d\n",clock(),CLOCKS_PER_SEC);
 
 	Pixy2SPI_SS pixy;
-	pixy.init();
+	int pixyInitReturnCode = pixy.init();
+	//Pixy Error ins erste Bit vom errorCode codieren
+	if (pixyInitReturnCode != 0) {
+		errorCode |= (1 << 0);
+	};
+
 	pixy.getVersion();
 	pixy.version->print();
 	printf("HellO World: %ld\n",clock());
 	pixy.setLED(0, 255, 0);
-	//pixy.setLamp(1, 1);
+	pixy.setLamp(1, 1);
 	pixy.changeProg("line");
-
+	//checking for errors after setup
+	if(errorCode != 0){
+		zeige_Wert(errorCode);
+		zeige_Wert(errorCode);
+		zeige_Wert(errorCode);
+	};
 
 
 	//--------------------------------------------------------------------
@@ -312,6 +324,7 @@ int main(void)
 			Pot2=mAd_Read(kPot2);
 			Motoron=mSwitch_ReadSwitch(kSw4);
 
+
 			//jetzt die Programme durchgehen
 			//Die Zustaende werden dann in jedem Programm beruecksichtigt
 
@@ -327,8 +340,9 @@ int main(void)
 
 						steer = 0.2;
 						mTimer_SetServoDuty(0,steer);
-						usleep(3049000);   // 9.5 Sekunden warten
-
+						usleep(3049000);   // 0.5 Sekunden warten
+						steer = 0.0;
+						mTimer_SetServoDuty(0,steer);
 
 						doneinitflag=true;
 					}
@@ -364,17 +378,6 @@ int main(void)
 
 							usleep(30490000);   // 5 Sekunden warten
 
-	#if (SD_ENABLED)
-							SYSMPU_Enable(SYSMPU, false);
-							BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
-
-							if (SD_Init(card))
-							{
-								mLeds_Write(kMaskLed2,kLedOn);
-								printf("\nSD card init failed.\n");
-								return 0;
-							}
-	#endif
 							testi=1;
 							mLeds_Write(kMaskLed1,kLedOn);
 
@@ -398,6 +401,7 @@ int main(void)
 						//should be refactored to return error -> different func to convert error to steer
 
 						steer = Pixy2_LaneTracking(pixy);
+
 						if(steer == 0){
 							mLeds_Write(kMaskLed4, kLedOn);
 						}else if(steer != 0){
@@ -407,36 +411,16 @@ int main(void)
 						mTimer_SetServoDuty(0,steer);
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
-#if (SD_ENABLED)
-						//
-						sdprintf8(card,(int)(timeakt),"; ");    sdprintf8(card,(int)(steer * 1000),"; ");	//float nach int indem man um faktor 1000 vergrößert
-#endif
 
 
-#if (SD_ENABLED)
-						write2SD(card,"\n");
-#endif
 
-						//Zeitmarke nehmen fuer die Bestimmung der Berechnungsdauer (in ms)
-						timermark1=mDelay_GetDelay(kPit1,sDelay);
-
-						//Hier die Berechnungen durchfuehren
-
-						//Zeitdauer der Berechnung bestimmen (in ms)
-						difftimer1=timermark1-mDelay_GetDelay(kPit1,sDelay);
 					}
 
 					testi++;
 				}
 				else if(Zustand==ZSTOP) {
 
-#if (SD_ENABLED)
-					write2SD(card,"\n");
-					write2SD(card,NULL);
-					SD_Deinit(card);
-#endif
 
-					zeigewert=0;
 					Motor_SetSpeed(-1);	//stopping motor
 					Zustand_old=Zustand;
 					Zustand=ZHALT;
@@ -451,7 +435,6 @@ int main(void)
 					}
 					else if(zeigewert==1) {
 						//vierfacher nmax Wert
-						zeige_Wert((UInt8)(4.0*nmax));
 						mLeds_Write(kMaskLed2,kLedOff);
 						mLeds_Write(kMaskLed3,kLedOff);
 						mLeds_Write(kMaskLed4,kLedOn);
@@ -471,7 +454,163 @@ int main(void)
 				Startbutton_old=Startbutton;
 				Button2_old=Button2;
 			}
+			else if(Programm == PROGSDDEBUG){
+				if(Zustand==ZINIT) {
+									//kritische Groessen signalisieren
 
+									//Dinge die man nur einmal machen moechte
+									if(doneinitflag==false) {
+										steer = -0.2;
+										mTimer_SetServoDuty(0,steer);
+										usleep(3049000);   // 0.5 Sekunden warten
+
+										steer = 0.2;
+										mTimer_SetServoDuty(0,steer);
+										usleep(3049000);   // 0.5 Sekunden warten
+										steer = 0.0;
+										mTimer_SetServoDuty(0,steer);
+
+										doneinitflag=true;
+									}
+
+									//START bei Startbutton=true
+									if((Startbutton==true)&&(Startbutton_old==false)) {
+										mLeds_Write(kMaskLed2,kLedOff);
+										mLeds_Write(kMaskLed3,kLedOn);
+										mLeds_Write(kMaskLed4,kLedOff);
+
+										printf("START!\n");
+
+										Zustand_old=Zustand;
+										Zustand=ZSTART;
+
+										doneinitflag=false;
+										startflag=0;
+									}
+								}
+								else if(Zustand==ZSTART) {
+									//hier Startdinge erledigen
+
+									//RUN bei Startbutton=true
+									if((Startbutton==true)&&(Startbutton_old==false)) {
+										if(startflag<2) {
+											startflag++;
+										}
+										else {
+											mLeds_Write(kMaskLed1,kLedOff);
+											mLeds_Write(kMaskLed2,kLedOff);
+											mLeds_Write(kMaskLed3,kLedOff);
+											mLeds_Write(kMaskLed4,kLedOff);
+
+											usleep(30490000);   // 5 Sekunden warten
+
+					#if (SD_ENABLED)
+											SYSMPU_Enable(SYSMPU, false);
+											BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
+
+											if (SD_Init(card))
+											{
+												mLeds_Write(kMaskLed2,kLedOn);
+												printf("\nSD card init failed.\n");
+												return 0;
+											}
+					#endif
+											testi=1;
+											mLeds_Write(kMaskLed1,kLedOn);
+
+											startflag=0;
+											Zustand_old=Zustand;
+											Zustand=ZRUN;
+										}
+									}
+								}
+								else if(Zustand==ZRUN) {
+									timeakt=(clock_t)(testi*K_MAIN_INTERVAL);	//get time
+									if(			((Startbutton==true)&&(Startbutton_old==false))
+											  ||(timeakt>10000)) {	//goes to stop after 10000 timeunit (sec, ms??)
+										printf("STOP!\n");
+										Zustand_old=Zustand;
+										Zustand=ZSTOP;
+									}
+									else {
+
+										//hier steering für Programm Rennen
+										//should be refactored to return error -> different func to convert error to steer
+
+										steer = Pixy2_LaneTracking(pixy);
+										if(steer == 0){
+											mLeds_Write(kMaskLed4, kLedOn);
+										}else if(steer != 0){
+											mLeds_Write(kMaskLed4, kLedOff);
+										};
+
+										mTimer_SetServoDuty(0,steer);
+										//Pot2 is beeing read after Program is being read
+										Motor_SetSpeed(Pot2);
+				#if (SD_ENABLED)
+										//
+										sdprintf8(card,(int)(timeakt),"; ");    sdprintf8(card,(int)(steer * 1000),"; ");	//float nach int indem man um faktor 1000 vergrößert
+				#endif
+
+
+				#if (SD_ENABLED)
+										write2SD(card,"\n");
+				#endif
+
+										//Zeitmarke nehmen fuer die Bestimmung der Berechnungsdauer (in ms)
+										timermark1=mDelay_GetDelay(kPit1,sDelay);
+
+										//Hier die Berechnungen durchfuehren
+
+										//Zeitdauer der Berechnung bestimmen (in ms)
+										difftimer1=timermark1-mDelay_GetDelay(kPit1,sDelay);
+									}
+
+									testi++;
+								}
+								else if(Zustand==ZSTOP) {
+
+				#if (SD_ENABLED)
+									write2SD(card,"\n");
+									write2SD(card,NULL);
+									SD_Deinit(card);
+				#endif
+
+									zeigewert=0;
+									Motor_SetSpeed(-1);	//stopping motor
+									Zustand_old=Zustand;
+									Zustand=ZHALT;
+								}
+								else if(Zustand==ZHALT) {
+									//Parameter per LED anzeigen
+									if((Button2==true)&&(Button2_old==false)) {
+										zeigewert=(++zeigewert)%2;
+									}
+
+									if(zeigewert==0) {
+									}
+									else if(zeigewert==1) {
+										//vierfacher nmax Wert
+										mLeds_Write(kMaskLed2,kLedOff);
+										mLeds_Write(kMaskLed3,kLedOff);
+										mLeds_Write(kMaskLed4,kLedOn);
+									}
+
+									usleep(18000000);
+
+									//Reset bei Startbutton=true
+									if((Startbutton==true)&&(Startbutton_old==false)) {
+										printf("RESET!\n");
+										Zustand_old=Zustand;
+										Zustand=ZINIT;
+									}
+
+								}
+
+								Startbutton_old=Startbutton;
+								Button2_old=Button2;
+
+			}
 		}
 	}
 
@@ -506,30 +645,8 @@ void signal_init(void) {
 	return;
 }
 
-void zeige_Wert(UInt8 wert) {
+void zeige_Wert(int wert) {
 	//erstmal ein flash
-	mLeds_Write(kMaskLed1,kLedOff);
-	mLeds_Write(kMaskLed2,kLedOff);
-	mLeds_Write(kMaskLed3,kLedOff);
-	mLeds_Write(kMaskLed4,kLedOff);
-	usleep(1000000);
-	mLeds_Write(kMaskLed1,kLedOn);
-	mLeds_Write(kMaskLed2,kLedOn);
-	mLeds_Write(kMaskLed3,kLedOn);
-	mLeds_Write(kMaskLed4,kLedOn);
-	usleep(1000000);
-	mLeds_Write(kMaskLed1,kLedOff);
-	mLeds_Write(kMaskLed2,kLedOff);
-	mLeds_Write(kMaskLed3,kLedOff);
-	mLeds_Write(kMaskLed4,kLedOff);
-	usleep(1000000);
-	//erst die ersten 4 bit
-	if(wert&(1<<7)) { mLeds_Write(kMaskLed1,kLedOn);}
-	if(wert&(1<<6)) { mLeds_Write(kMaskLed2,kLedOn);}
-	if(wert&(1<<5)) { mLeds_Write(kMaskLed3,kLedOn);}
-	if(wert&(1<<4)) { mLeds_Write(kMaskLed4,kLedOn);}
-	usleep(6000000);
-	//dann ein flash
 	mLeds_Write(kMaskLed1,kLedOff);
 	mLeds_Write(kMaskLed2,kLedOff);
 	mLeds_Write(kMaskLed3,kLedOff);
