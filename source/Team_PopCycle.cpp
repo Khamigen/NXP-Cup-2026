@@ -409,6 +409,7 @@ int main(void)
 						usleep(3049000);   // 0.5 Sekunden warten
 						steer = 0.0;
 						mTimer_SetServoDuty(0,steer);
+
 						doneinitflag=true;
 					}
 
@@ -476,6 +477,7 @@ int main(void)
 						mTimer_SetServoDuty(0,steer);
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
+
 					}
 
 					testi++;
@@ -677,6 +679,7 @@ int main(void)
 								Button2_old=Button2;
 
 			}
+
 
 		}
 	}
