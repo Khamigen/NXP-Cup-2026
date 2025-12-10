@@ -15,6 +15,7 @@ extern "C"{
 
 #define MA_WINDOW_SIZE 2 // window used for moving average
 
+
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
 static float errorBuffer[MA_WINDOW_SIZE];
@@ -24,7 +25,8 @@ static int bufferCount = 0;
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
 const float kD = 0.01f;	//derivative, bigger kd, faster steer
-const float kP = -0.05f;	//proportion, bigger kp, bigger steer
+
+const float kP = -0.08f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
 const float steerMax = 0.75f;
@@ -78,13 +80,9 @@ float singleVectorLogic(Vector &v)
 	    std::swap(v.m_x0, v.m_x1);
 	    std::swap(v.m_y0, v.m_y1);
 	}
-//	int len = root((v.m_y1-v.m_y0)^2+(v.m_x1-v.m_x0)^2);
-//	if (len<)
 
-	float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
-	float slope = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0);
-	//check if vector valid. If invalid, return last lane center
-	//if(!singleVectorValid(v)){return lastLaneCenterX;}
+	float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;;
+	float slope = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0);;
 	//angle calculation
 	if ( v.m_x1 < v.m_x0)
 	{
