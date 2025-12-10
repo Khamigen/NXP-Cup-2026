@@ -13,7 +13,7 @@ extern "C"{
 #include "Modules/mTimer.h"
 }
 
-#define MA_WINDOW_SIZE 5 // window used for moving average
+#define MA_WINDOW_SIZE 10 // window used for moving average
 
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
@@ -24,7 +24,7 @@ static int bufferCount = 0;
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
 const float kD = 0.01f;	//derivative, bigger kd, faster steer
-const float kP = -0.14f;	//proportion, bigger kp, bigger steer
+const float kP = -0.08f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
 const float steerMax = 0.7f;
@@ -64,13 +64,19 @@ bool twoVectorsValid(const Vector &v1, const Vector &v2)
 float singleVectorLogic(Vector &v)
 {
 	//make sure the vector is pointing upward
-	if(v.m_y0 < v.m_y1)
+	if(v.m_y0 > v.m_y1)
 	{
 	    std::swap(v.m_x0, v.m_x1);
 	    std::swap(v.m_y0, v.m_y1);
 	}
+	float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;;
+	float slope = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0);;
 	//angle calculation
-    float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
+	if ( v.m_x1 < v.m_x0)
+	{
+		angle = -angle;
+	}
+
     //middle X coordinate
     int midX = (v.m_x0 + v.m_x1) / 2;
     //angle = 0 --> horizontal line
@@ -79,15 +85,16 @@ float singleVectorLogic(Vector &v)
 
     // case 1: right turn
     if(rightTurn)
-        return midX + laneHalfWidthPx;
+        return midX - laneHalfWidthPx;
 
     // case 2: left turn
     if(leftTurn)
-        return midX - laneHalfWidthPx;
+        return midX + laneHalfWidthPx;
 
     // case 3: angle close to 0, almost horizontal line, use the position of the line to calculate lane center
     // in this scenario, right outer line would be on the right side and vice versa
-    if(midX < frameCenterX)
+
+    if(slope < 0)
         return midX + laneHalfWidthPx;  // vector located at the right, turn right
     else
         return midX - laneHalfWidthPx;  // vector located at the left, turn left
