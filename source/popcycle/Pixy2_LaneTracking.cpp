@@ -184,6 +184,7 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	//detects no vector
 	else{
 		// use last lane center
+
 		//laneCenterX = lastLaneCenterX;
 		return 0.0f;
 	}
