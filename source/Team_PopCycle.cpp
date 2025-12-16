@@ -147,14 +147,14 @@ typedef enum laneElement{
 	chicane
 } laneElement;
 
+/*
 typedef struct laneData {
 	float errorBuffer[MA_WINDOW_SIZE];
 	float currentError;
 	int LaneCenter;
 	laneElement detectedLaneElement;
 } laneData;
-
-
+*/
 Int8 lese_Programm(void);
 short sprintfr8(char *ptr,int zahl, const char *str);
 void zeige_Wert(int wert);
@@ -164,7 +164,7 @@ void signal_init(void);
 
 short write2SD(sd_card_t *card, const char *str);
 short sdprintf8(sd_card_t *card,int zahl,const char *str);
-
+void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
 #endif
 
 /*
@@ -210,6 +210,12 @@ int main(void)
 	UInt16 timermark1;
 	Int16 difftimer1,difftimer2,mdifftimer1,mdifftimer2;
 
+	pixyLineVector vectorData[2] = {
+	    {0, 0, 0, 0},
+	    {0, 0, 0, 0}
+	};
+
+
 	static float ILeft[10]={0,0,0,0,0,0,0,0,0,0};
 	static float ILeftmittel=0;
 	static int   ILeftindex=0;
@@ -222,8 +228,8 @@ int main(void)
 	Int16   i,j,z;
 
 	//initieren der structs
-	laneData ld = {{0}, 0.0f, 38, undefined};
-	laneData  pld = &ld;
+	//laneData ld = {{0}, 0.0f, 38, undefined};
+	//laneData  pld = &ld;
 
 	doneinitflag=false;
 	Programm=Programm_old=-1;
@@ -555,7 +561,7 @@ int main(void)
 										//hier steering für Programm Rennen
 										//should be refactored to return error -> different func to convert error to steer
 
-										steer = Pixy2_LaneTracking(pixy);
+										steer = Pixy2_LaneTrackingDebug(pixy, vectorData);
 										if(steer == 0){
 											mLeds_Write(kMaskLed4, kLedOn);
 										}else if(steer != 0){
@@ -567,10 +573,9 @@ int main(void)
 										Motor_SetSpeed(Pot2);
 				#if (SD_ENABLED)
 										//
-										sdprintf8(card,(int)(timeakt),"; ");    sdprintf8(card,(int)(steer * 1000),"; ");	//float nach int indem man um faktor 1000 vergrößert
+										logPixyVectors(card, vectorData, timeakt);
+
 				#endif
-
-
 				#if (SD_ENABLED)
 										write2SD(card,"\n");
 				#endif
@@ -804,6 +809,19 @@ short sdprintf8(sd_card_t *card,int zahl,const char *str)
 		write2SD(card,string);
 	}
 	return k;
+}
+
+void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time)
+{
+    sdprintf8(card, time, "; ");
+
+    for (int i = 0; i < 2; i++) {
+        sdprintf8(card, vec[i].m_x0, "; ");
+        sdprintf8(card, vec[i].m_y0, "; ");
+        sdprintf8(card, vec[i].m_x1, "; ");
+        sdprintf8(card, vec[i].m_y1, "; ");
+    }
+    write2SD(card, "\n");
 }
 #endif
 
