@@ -282,6 +282,7 @@ float Pixy2_LaneTrackingDebug(Pixy2SPI_SS &pixy, pixyLineVector (&vectorData)[2]
 	//detects no vector
 	else{
 		// use last lane center
+
 		laneCenterX = 39;;
 	}
 

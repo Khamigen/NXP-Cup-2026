@@ -139,7 +139,22 @@ float Sabstand=0.06;	//Schwerpunktabstand vor Hinterachse in Meter
 float Kamerahoehe=0.4; //in Meter ueber dem Boden
 float Radradius=0.03;	//in Meter
 
+//Datenaustausch Strukturen
+typedef enum laneElement{
+	undefined,
+	straight,
+	curveL,
+	curveR,
+	crossing,
+	chicane
+} laneElement;
 
+typedef struct laneData {
+	float errorBuffer[MA_WINDOW_SIZE];
+	float currentError;
+	int LaneCenter;
+	laneElement detectedLaneElement;
+} laneData;
 
 //Datenaustausch Strukturen
 typedef enum laneElement{
@@ -246,8 +261,10 @@ int main(void)
 	Int16   i,j,z;
 
 	//initieren der structs
+
 	//laneData ld = {{0}, 0.0f, 38, undefined};
 	//laneData  pld = &ld;
+
 
 	doneinitflag=false;
 	Programm=Programm_old=-1;
