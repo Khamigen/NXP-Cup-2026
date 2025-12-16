@@ -149,12 +149,14 @@ typedef enum laneElement{
 	chicane
 } laneElement;
 
+/*
 typedef struct laneData {
 	float errorBuffer[MA_WINDOW_SIZE];
 	float currentError;
 	int LaneCenter;
 	laneElement detectedLaneElement;
 } laneData;
+<<<<<<< HEAD
 
 //Datenaustausch Strukturen
 typedef enum laneElement{
@@ -187,6 +189,7 @@ void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
 #endif
 
 
+
 Int8 lese_Programm(void);
 short sprintfr8(char *ptr,int zahl, const char *str);
 void zeige_Wert(int wert);
@@ -196,7 +199,7 @@ void signal_init(void);
 
 short write2SD(sd_card_t *card, const char *str);
 short sdprintf8(sd_card_t *card,int zahl,const char *str);
-
+void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
 #endif
 
 /*
@@ -264,7 +267,6 @@ int main(void)
 
 	//laneData ld = {{0}, 0.0f, 38, undefined};
 	//laneData  pld = &ld;
-
 
 	doneinitflag=false;
 	Programm=Programm_old=-1;
@@ -529,6 +531,7 @@ int main(void)
 						usleep(3049000);   // 0.5 Sekunden warten
 						steer = 0.0;
 						mTimer_SetServoDuty(0,steer);
+
 
 						doneinitflag=true;
 					}

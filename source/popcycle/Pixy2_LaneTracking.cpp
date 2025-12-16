@@ -325,3 +325,101 @@ float Pixy2_LaneTrackingDebug(Pixy2SPI_SS &pixy, pixyLineVector (&vectorData)[2]
 
     return steer;
 }
+
+float Pixy2_LaneTrackingDebug(Pixy2SPI_SS &pixy, pixyLineVector (&vectorData)[2]){
+	int laneCenterX;
+	pixy.line.getAllFeatures(LINE_VECTOR, 1);
+	// if detects more than 2 vectors, calculate the center
+	if(pixy.line.numVectors >= 2)
+	    {
+	        // Determine left and right lines
+	        auto v1 = pixy.line.vectors[0];
+	        auto v2 = pixy.line.vectors[1];
+	        //writing vector data to struct for sd card logging
+	        vectorData[0].m_x0 = v1.m_x0;
+	        vectorData[0].m_y0 = v1.m_y0;
+	        vectorData[0].m_x1 = v1.m_x1;
+	        vectorData[0].m_y1 = v1.m_y1;
+
+	        vectorData[1].m_x0 = v2.m_x0;
+	        vectorData[1].m_y0 = v2.m_y0;
+	        vectorData[1].m_x1 = v2.m_x1;
+	        vectorData[1].m_y1 = v2.m_y1;
+	        //check if the 2 vectors valid
+	        //if valid, calculate using 2 vector logic
+		    if (twoVectorsValid(v1,v2)){
+		    	//2 vector logic
+		    	//calculate mid x coordinates
+		    	int midX1 = (v1.m_x0 + v1.m_x1) / 2;
+		    	int midX2 = (v2.m_x0 + v2.m_x1) / 2;
+		    	//compare midX1 and midX2, the smaller one is leftX and the bigger one is rightX
+		    	int leftX = (midX1 < midX2) ? midX1 : midX2;
+		    	int rightX = (midX1 < midX2) ? midX2 : midX1;
+
+		    	laneCenterX = (leftX + rightX)/2;
+		    	lastLaneCenterX = laneCenterX;
+		    }
+		    //if not valid, fallback to 1 vector logic
+		    else{
+		    	// use single vector logic
+		    	int laneCenterEstimate = singleVectorLogic(v1);
+		    	// smooth the vector
+		    	lastLaneCenterX = singleVectorSmooth(v1,laneCenterEstimate);
+		    	laneCenterX = lastLaneCenterX;
+		    }
+	    }
+	// only detects 1 vector
+	else if (pixy.line.numVectors == 1)
+	{
+	    auto v = pixy.line.vectors[0];
+	    // use single vector logic
+	    int laneCenterEstimate = singleVectorLogic(v);
+	    // smooth the vector
+	    lastLaneCenterX = singleVectorSmooth(v,laneCenterEstimate);
+	    laneCenterX = lastLaneCenterX;
+	}
+	//detects no vector
+	else{
+		// use last lane center
+		laneCenterX = 39;;
+	}
+
+	// error calculation
+	float error = (float)(laneCenterX - frameCenterX);
+    // Moving Average
+	//add error to the buffer array
+    errorBuffer[bufferIndex] = error;
+    //bufferIndex point to next element, use modulo to loop to element0 if window size is reached
+    bufferIndex = (bufferIndex + 1) % MA_WINDOW_SIZE;
+
+    if(bufferCount < MA_WINDOW_SIZE)
+        {bufferCount++;}
+
+    float sum = 0;
+    for(int i=0; i<bufferCount; i++)
+        {sum += errorBuffer[i];}
+
+    float avgError = sum / bufferCount;
+
+    //PD Controller, kP and kD defined as constant
+    float dError = avgError - lastAvgError;
+    lastAvgError = avgError;
+
+    float steer = kP * avgError + kD * dError;
+
+    // Limit the maximum range of steer, steerMax defined as constant
+    // to do: use clampf instead
+    if(steer > steerMax) steer = steerMax;
+    if(steer < -steerMax) steer = -steerMax;
+
+    // Limit turn rate. steerStepLimit defined as constant
+    float delta = steer - lastSteer;
+    if(delta > steerStepLimit)
+        {steer = lastSteer + steerStepLimit;}
+    else if(delta < -steerStepLimit)
+        {steer = lastSteer - steerStepLimit;}
+
+    lastSteer = steer;
+
+    return steer;
+}
