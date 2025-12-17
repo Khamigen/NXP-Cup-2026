@@ -409,6 +409,7 @@ int main(void)
 		mTimer_SetServoDuty(0,steer);
 		float pot2 = mAd_Read(kPot2);
 		Motor_SetSpeed(pot2);
+		//Motor_SetSpeedCurve(steer);
 		/*if(pixy.line.numVectors >= 2)
 		    {
 		        // Determine left and right lines
