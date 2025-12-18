@@ -10,6 +10,7 @@
 #define POPCYCLE__PIXY2_LANETRACKING_H_
 
 
+
 #define MA_WINDOW_SIZE 2 // window used for moving average
 
 
