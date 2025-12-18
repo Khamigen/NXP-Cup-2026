@@ -13,7 +13,7 @@ extern "C"{
 #include "Modules/mTimer.h"
 }
 
-#define MA_WINDOW_SIZE 10 // window used for moving average
+#define MA_WINDOW_SIZE 2 // window used for moving average
 
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
@@ -27,7 +27,7 @@ const float kD = 0.01f;	//derivative, bigger kd, faster steer
 const float kP = -0.05f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
-const float steerMax = 0.7f;
+const float steerMax = 0.75f;
 
 // Limit steering rate
 static float lastSteer = 0.0f;
