@@ -13,7 +13,7 @@ extern "C"{
 #include "Modules/mTimer.h"
 }
 
-#define MA_WINDOW_SIZE 5 // window used for moving average
+#define MA_WINDOW_SIZE 2 // window used for moving average
 
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
@@ -24,10 +24,10 @@ static int bufferCount = 0;
 // Proportional–Derivative Controller
 static float lastAvgError = 0.0f;
 const float kD = 0.01f;	//derivative, bigger kd, faster steer
-const float kP = -0.14f;	//proportion, bigger kp, bigger steer
+const float kP = -0.05f;	//proportion, bigger kp, bigger steer
 
 // Limit maximum steer
-const float steerMax = 0.7f;
+const float steerMax = 0.75f;
 
 // Limit steering rate
 static float lastSteer = 0.0f;
@@ -38,6 +38,7 @@ static int lastLaneCenterX = 39;
 //static int lastHadTwoLines = 0;
 
 const int frameCenterX = 39; // Pixy2 line mode width/2
+const int frameBottomDeadzoneY = 35; // Pixy line mode bottom Y = 51
 const int laneHalfWidthPx = 25;   //
 const int jumpThreshold = 25;     // 若新估跳超過此值則暫不採用
 int singleLineStableCount = 0;    // 單線穩定計數器
@@ -53,41 +54,61 @@ bool twoVectorsValid(const Vector &v1, const Vector &v2)
 	int midX1 = (v1.m_x0 + v1.m_x1) / 2;
 	int midX2 = (v2.m_x0 + v2.m_x1) / 2;
 	//condition 1: angle difference too big
-	if (angleDiff > 60.0f)
+	if (angleDiff > 50.0f)
 		{return false;}
 	//condition 2: 2 vectors too close to each other
 	if (abs(midX1 - midX2) < 40)
 		{return false;}
 	return true;
 }
+////check whether the single vector from pixy is valid
+//bool singleVectorValid(const Vector &v)
+//{
+//    // 2. 底部有接觸畫面下方（非常重要）
+//    if (v.m_y0 < 60 && v.m_y1 < 60) return false;
+//
+//    return true;
+//}
 //lane center calculation for single line case
 float singleVectorLogic(Vector &v)
 {
 	//make sure the vector is pointing upward
-	if(v.m_y0 < v.m_y1)
+	if(v.m_y0 > v.m_y1)
 	{
 	    std::swap(v.m_x0, v.m_x1);
 	    std::swap(v.m_y0, v.m_y1);
 	}
+//	int len = root((v.m_y1-v.m_y0)^2+(v.m_x1-v.m_x0)^2);
+//	if (len<)
+
+	float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
+	float slope = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0);
+	//check if vector valid. If invalid, return last lane center
+	//if(!singleVectorValid(v)){return lastLaneCenterX;}
 	//angle calculation
-    float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
+	if ( v.m_x1 < v.m_x0)
+	{
+		angle = -angle;
+	}
+
     //middle X coordinate
     int midX = (v.m_x0 + v.m_x1) / 2;
     //angle = 0 --> horizontal line
-    bool rightTurn = (angle > 20);   // vector points rightward
-    bool leftTurn  = (angle < -20);  // vector points leftward
+    bool rightTurn = (angle > 25);   // vector points rightward
+    bool leftTurn  = (angle < -25);  // vector points leftward
 
     // case 1: right turn
     if(rightTurn)
-        return midX + laneHalfWidthPx;
+        return midX - laneHalfWidthPx;
 
     // case 2: left turn
     if(leftTurn)
-        return midX - laneHalfWidthPx;
+        return midX + laneHalfWidthPx;
 
     // case 3: angle close to 0, almost horizontal line, use the position of the line to calculate lane center
     // in this scenario, right outer line would be on the right side and vice versa
-    if(midX < frameCenterX)
+
+    if(slope < 0)
         return midX + laneHalfWidthPx;  // vector located at the right, turn right
     else
         return midX - laneHalfWidthPx;  // vector located at the left, turn left
@@ -163,7 +184,8 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	//detects no vector
 	else{
 		// use last lane center
-		laneCenterX = lastLaneCenterX;
+		//laneCenterX = lastLaneCenterX;
+		return 0.0f;
 	}
 
 	// error calculation
