@@ -47,17 +47,18 @@ const int stabilityFrames = 3;    // 要連續多少幀才接受估值
 //check whether the 2 vectors from pixy are valid
 bool twoVectorsValid(const Vector &v1, const Vector &v2)
 {
-	float angle1 = atan2f(v1.m_y1 - v1.m_y0, v1.m_x1 - v1.m_x0) * 57.2958f;
+	// atan2 calculates angle to x axis when given a 2d point
+	float angle1 = atan2f(v1.m_y1 - v1.m_y0, v1.m_x1 - v1.m_x0) * 57.2958f;	//TODO: replace both floats with constants or makros
 	float angle2 = atan2f(v2.m_y1 - v2.m_y0, v2.m_x1 - v2.m_x0) * 57.2958f;
 	float angleDiff = fabsf(angle1 - angle2);
 	// --- compute center x ---
 	int midX1 = (v1.m_x0 + v1.m_x1) / 2;
 	int midX2 = (v2.m_x0 + v2.m_x1) / 2;
 	//condition 1: angle difference too big
-	if (angleDiff > 50.0f)
+	if (angleDiff > 50.0f)//TODO: replace float with constant or makro
 		{return false;}
 	//condition 2: 2 vectors too close to each other
-	if (abs(midX1 - midX2) < 40)
+	if (abs(midX1 - midX2) < 40)//TODO: replace float with constnat or makro
 		{return false;}
 	return true;
 }
@@ -80,21 +81,26 @@ float singleVectorLogic(Vector &v)
 	}
 //	int len = root((v.m_y1-v.m_y0)^2+(v.m_x1-v.m_x0)^2);
 //	if (len<)
-
-	float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f;
+	//
+	// What does this exactly do
+	//
+	float angle = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0) * 57.2958f; //TODO: replace float with constant or makro
 	float slope = atan2f(v.m_y1 - v.m_y0, v.m_x1 - v.m_x0);
 	//check if vector valid. If invalid, return last lane center
 	//if(!singleVectorValid(v)){return lastLaneCenterX;}
 	//angle calculation
+
+	//TODO: explain why is this necessary after swapping vectors so they always point upwards?
 	if ( v.m_x1 < v.m_x0)
 	{
 		angle = -angle;
 	}
 
     //middle X coordinate
+	//TODO: maybe nice to also have y coordinate estimation: mixX and midY for later speed stuff
     int midX = (v.m_x0 + v.m_x1) / 2;
     //angle = 0 --> horizontal line
-    bool rightTurn = (angle > 25);   // vector points rightward
+    bool rightTurn = (angle > 25);   // vector points rightward TODO: replace int with constant or makro
     bool leftTurn  = (angle < -25);  // vector points leftward
 
     // case 1: right turn
@@ -124,7 +130,7 @@ float singleVectorSmooth(Vector &v, int laneCenterEstimate)
 		// too short, ignore it and return lastLaneCenter
 		return lastLaneCenterX;
 	// longer vector gets more weight
-	float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;
+	float lengthWeight = (len < normalLen) ? (len / normalLen) : 1.0f;	//TODO: replace 1.0f with constant or makro
 	// calculate the Y coordinate of the vector, upper vector gets more weight
 	int midY = (v.m_y0 + v.m_y1) / 2;
 	const int frameHeight = 80;  // Pixy2 line-mode height
@@ -135,14 +141,25 @@ float singleVectorSmooth(Vector &v, int laneCenterEstimate)
 	int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * combinedWeight);
 	// --- jump protection ---
 	if (abs(blended - lastLaneCenterX) > jumpThreshold)
-		blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
+		blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);//TODO: replace 0.2f with constant or makro
 	return blended;
 }
-
+//TODO: possible to overload this function, one with pixy and a telemetry struct when debugging or writing to sd card
 float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	int laneCenterX;
+	//
+	// get all recognized lines from pixy
+	//
+	//
+
+	//can be outsourced with a function which returns 2 vectors?
 	pixy.line.getAllFeatures(LINE_VECTOR, 1);
 	// if detects more than 2 vectors, calculate the center
+
+	//first case handling depending on how many vectors where recognized here possibility to force singlevector logic if wanted, then
+	//validates vectors
+	//-- what does it do exactly
+	//
 	if(pixy.line.numVectors >= 2)
 	    {
 	        // Determine left and right lines
@@ -150,6 +167,10 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 	        auto v2 = pixy.line.vectors[1];
 	        //check if the 2 vectors valid
 	        //if valid, calculate using 2 vector logic
+
+	        //
+	        // what is a valid vector?
+	        //
 		    if (twoVectorsValid(v1,v2)){
 		    	//2 vector logic
 		    	//calculate mid x coordinates
@@ -187,7 +208,10 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 		//laneCenterX = lastLaneCenterX;
 		return 0.0f;
 	}
-
+	//
+	//	new logic
+	//
+	//
 	// error calculation
 	float error = (float)(laneCenterX - frameCenterX);
     // Moving Average
@@ -227,3 +251,15 @@ float Pixy2_LaneTracking(Pixy2SPI_SS &pixy){
 
     return steer;
 }
+
+/*
+ * Makro workings of this script
+ * - get two vectors
+ * - decide wether to use single vector logic or double vector logic to compute laneCenter
+ * - preprocessing / validation on vector
+ * - compute laneCenter
+ * - compute error with laneCenter and Framecenter
+ * - fill an error buffer
+ * - compute steer from given errorbuffer
+ *
+ * */
