@@ -13,7 +13,7 @@ extern "C"{
 #include "Modules/mTimer.h"
 }
 
-#define MA_WINDOW_SIZE 2 // window used for moving average
+#define MA_WINDOW_SIZE 1 // window used for moving average
 
 //static because these are "state" saved from last loop. shouldn't be reset during each loop.
 // moving average
@@ -61,14 +61,7 @@ bool twoVectorsValid(const Vector &v1, const Vector &v2)
 		{return false;}
 	return true;
 }
-////check whether the single vector from pixy is valid
-//bool singleVectorValid(const Vector &v)
-//{
-//    // 2. 底部有接觸畫面下方（非常重要）
-//    if (v.m_y0 < 60 && v.m_y1 < 60) return false;
-//
-//    return true;
-//}
+
 //lane center calculation for single line case
 float singleVectorLogic(Vector &v)
 {
@@ -128,14 +121,27 @@ float singleVectorSmooth(Vector &v, int laneCenterEstimate)
 	// calculate the Y coordinate of the vector, upper vector gets more weight
 	int midY = (v.m_y0 + v.m_y1) / 2;
 	const int frameHeight = 80;  // Pixy2 line-mode height
-	float verticalWeight = 1.0f - ((float)midY / (float)frameHeight);  // 0 at bottom, 1 at top
+	//float verticalWeight = 1.0f - ((float)midY / (float)frameHeight);  // 0 at bottom, 1 at top
+	//line near the car have more weight
+	float nearWeight = ((float)midY/(float)frameHeight);
+	if (nearWeight<0.15f) nearWeight = 0.15f;
 	//combine length and vertical weight
-	float combinedWeight = lengthWeight * verticalWeight;
+	float combinedWeight = lengthWeight * nearWeight;
+	//s curve strategy
+	int lastError = lastLaneCenterX - frameCenterX;
+	int newError = laneCenterEstimate - frameCenterX;
+	bool sCurve = (lastError!=0)&&(newError!=0)&&((lastError>0)!=(newError>0));
+	if(sCurve)
+		combinedWeight *= 2.0f;//range 1.5 ~ 3
+	if(combinedWeight > 1.0f) combinedWeight = 1.0f;
 	// --- blend with previous lane center ---
 	int blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * combinedWeight);
 	// --- jump protection ---
 	if (abs(blended - lastLaneCenterX) > jumpThreshold)
-		blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * 0.2f);
+	{
+		float alpha = sCurve? 0.6f: 0.2f;//turn more while in s curve
+		blended = lastLaneCenterX + (int)((laneCenterEstimate - lastLaneCenterX) * alpha);
+	}
 	return blended;
 }
 
