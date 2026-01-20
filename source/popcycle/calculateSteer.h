@@ -5,6 +5,9 @@
  *      Author: brunofigura
  */
 
+#include <stdbool.h>
+
+
 #ifndef POPCYCLE_CALCULATESTEER_H_
 #define POPCYCLE_CALCULATESTEER_H_
 
