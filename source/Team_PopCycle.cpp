@@ -43,6 +43,7 @@ extern "C"
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
 
 #include "board.h"
 #include "peripherals.h"
@@ -75,6 +76,8 @@ extern "C"
 // popcycle header
 #include <Popcycle/Pixy2_LaneTracking.h>
 #include <Popcycle/Motor_Control.h>
+#include <Popcycle/lineVectors.h>
+#include <Popcycle/centerPoint.h>
 
 /* Pixy 2 */
 #include "Pixy/Pixy2SPI_SS.h"
@@ -148,23 +151,6 @@ typedef enum laneElement{
 	chicane
 } laneElement;
 
-typedef struct LineVectors{
-	bool useSingleVectorLogic;
-	Vector v1;
-	Vector v2;
-};
-
-Int8 lese_Programm(void);
-short sprintfr8(char *ptr,int zahl, const char *str);
-void zeige_Wert(int wert);
-void signal_init(void);
-
-#if (SD_ENABLED)
-
-short write2SD(sd_card_t *card, const char *str);
-short sdprintf8(sd_card_t *card,int zahl,const char *str);
-void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
-#endif
 
 
 
@@ -177,8 +163,9 @@ void signal_init(void);
 
 short write2SD(sd_card_t *card, const char *str);
 short sdprintf8(sd_card_t *card,int zahl,const char *str);
-void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time);
+void logPixyVectors(sd_card_t *card, const Vector (&vec)[2], int time);
 #endif
+
 
 
 /*
@@ -225,7 +212,7 @@ int main(void)
 	UInt16 timermark1;
 	Int16 difftimer1,difftimer2,mdifftimer1,mdifftimer2;
 
-	pixyLineVector vectorData[2] = {
+	Vector vectorData[2] = {
 	    {0, 0, 0, 0},
 	    {0, 0, 0, 0}
 	};
@@ -442,6 +429,8 @@ int main(void)
 
 						//hier steering für Programm Rennen
 						//should be refactored to return error -> different func to convert error to steer
+						//LineVector lv = {};
+						//getLineVectorFeatures(pisy,lv);
 
 						steer = Pixy2_LaneTracking(pixy);
 
@@ -549,7 +538,7 @@ int main(void)
 
 					#if (SD_ENABLED)
 											SYSMPU_Enable(SYSMPU, false);
-											BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
+											//BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
 
 											if (SD_Init(card))
 											{
@@ -580,7 +569,7 @@ int main(void)
 										//hier steering für Programm Rennen
 										//should be refactored to return error -> different func to convert error to steer
 
-										steer = Pixy2_LaneTrackingDebug(pixy, vectorData);
+										//TODO: debug version of functions
 										if(steer == 0){
 											mLeds_Write(kMaskLed4, kLedOn);
 										}else if(steer != 0){
@@ -592,7 +581,7 @@ int main(void)
 										Motor_SetSpeed(Pot2);
 				#if (SD_ENABLED)
 										//
-										logPixyVectors(card, vectorData, timeakt);
+										//logPixyVectors(card, vectorData, timeakt);
 
 				#endif
 				#if (SD_ENABLED)
@@ -833,7 +822,7 @@ short sdprintf8(sd_card_t *card,int zahl,const char *str)
 	return k;
 }
 
-void logPixyVectors(sd_card_t *card, const pixyLineVector (&vec)[2], int time)
+void logPixyVectors(sd_card_t *card,const Vector (&vec)[2], int time)
 {
     sdprintf8(card, time, "; ");
 
