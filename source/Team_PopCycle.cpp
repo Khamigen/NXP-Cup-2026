@@ -363,11 +363,11 @@ int main(void)
 
 					//Dinge die man nur einmal machen moechte
 					if(doneinitflag==false) {
-						steer = -0.2;
+						steer = -0.1;
 						mTimer_SetServoDuty(0,steer);
 						usleep(3049000);   // 0.5 Sekunden warten
 
-						steer = 0.2;
+						steer = 0.1;
 						mTimer_SetServoDuty(0,steer);
 						usleep(3049000);   // 0.5 Sekunden warten
 						steer = 0.0;
