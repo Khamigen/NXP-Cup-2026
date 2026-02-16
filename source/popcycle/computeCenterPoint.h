@@ -11,7 +11,7 @@
 #ifndef POPCYCLE_COMPUTECENTERPOINT_H_
 #define POPCYCLE_COMPUTECENTERPOINT_H_
 
-CenterPoint computerCenterPoint(LineVectors &lv);
+CenterPoint computeCenterPoint(LineVectors &lv);
 
 
 
