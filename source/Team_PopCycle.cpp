@@ -208,7 +208,7 @@ int main(void)
 	float currentError;
 	eBuffer errorBuffer;
 	CenterPoint currentCenterPoint;
-	LineVectors pixyLineVectors;
+	LineVectors currentPixyLineVectors;
 
 	float aDuty;
 	float aUMotLeft,aUMotRight;
@@ -452,9 +452,9 @@ int main(void)
 						//LineVector lv = {};
 						//getLineVectorFeatures(pisy,lv);
 
-						/*
-						 * -----PRE REFACTOR CODE-------
-						 *
+
+						 //* -----PRE REFACTOR CODE-------
+						 //*
 						steer = Pixy2_LaneTracking(pixy);
 
 						if(steer == 0){
@@ -464,21 +464,20 @@ int main(void)
 						};
 
 						mTimer_SetServoDuty(0,steer);
-						*/
+
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
 
-						LineVectors currentPixyLineVectors;
 						getLineVectorsFeature(pixy, currentPixyLineVectors);
-						preprocessingLineVectors(pixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
-						currentCenterPoint = computeCenterPoint(pixyLineVectors);
-						currentError = computeHorizontalError(currentCenterPoint.x);
-						fillErrorBuffer(currentError, errorBuffer);
-						currentSteer = calculateSteer(errorBuffer);
-
+						preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
+						//currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
+						//currentError = computeHorizontalError(currentCenterPoint.x);
+						//fillErrorBuffer(currentError, errorBuffer);
+						//currentSteer = calculateSteer(errorBuffer);
+						/*
 						mTimer_SetServoDuty(0,currentSteer);
 												//Pot2 is beeing read after Program is being read
-						/*
+
 						if(Pot2 == 0){
 							mLeds_Write(kMaskLed3, kLedOn);
 						} else {
