@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2003-20xx Haute �cole ARC Ing�ni�rie, Switzerland.
  * Copyright 2016-2019 NXP
@@ -71,13 +72,25 @@ extern "C"
 #include "Applications/gInput.h"
 #include "Applications/gCompute.h"
 #include "Applications/gOutput.h"
-}
 
+}
 // popcycle header
 #include <Popcycle/Pixy2_LaneTracking.h>
 #include <Popcycle/Motor_Control.h>
 #include <Popcycle/lineVectors.h>
 #include <Popcycle/centerPoint.h>
+#include <Popcycle/eBuffer.h>
+
+
+
+#include <popcycle/getLineVectorsFeature.h>
+#include <Popcycle/preprocessingLineVectors.h>
+#include <Popcycle/computeCenterPoint.h>
+#include <Popcycle/computeHorizontalError.h>
+#include <Popcycle/fillErrorBuffer.h>
+#include <Popcycle/calculateSteer.h>
+
+
 
 /* Pixy 2 */
 #include "Pixy/Pixy2SPI_SS.h"
@@ -109,6 +122,8 @@ extern "C"
 #define ZSTOP			 4
 #define ZHALT			 5
 
+
+#define FORCE_SINGLE_VECTOR_LOGIC false	//Flag
 
 // Zustandsvariablen
 static Int8 Programm, Programm_old;
@@ -189,6 +204,11 @@ int main(void)
 
 	//Werte die gesetzt werden
 	float steer;
+	float currentSteer;
+	float currentError;
+	eBuffer errorBuffer;
+	CenterPoint currentCenterPoint;
+	LineVectors pixyLineVectors;
 
 	float aDuty;
 	float aUMotLeft,aUMotRight;
@@ -363,15 +383,15 @@ int main(void)
 
 					//Dinge die man nur einmal machen moechte
 					if(doneinitflag==false) {
-						steer = -0.1;
-						mTimer_SetServoDuty(0,steer);
+						currentSteer = -0.1;
+						mTimer_SetServoDuty(0,currentSteer);
 						usleep(3049000);   // 0.5 Sekunden warten
 
-						steer = 0.1;
-						mTimer_SetServoDuty(0,steer);
+						currentSteer = 0.1;
+						mTimer_SetServoDuty(0,currentSteer);
 						usleep(3049000);   // 0.5 Sekunden warten
-						steer = 0.0;
-						mTimer_SetServoDuty(0,steer);
+						currentSteer = 0.0;
+						mTimer_SetServoDuty(0,currentSteer);
 
 						doneinitflag=true;
 					}
@@ -432,6 +452,9 @@ int main(void)
 						//LineVector lv = {};
 						//getLineVectorFeatures(pisy,lv);
 
+						/*
+						 * -----PRE REFACTOR CODE-------
+						 *
 						steer = Pixy2_LaneTracking(pixy);
 
 						if(steer == 0){
@@ -441,11 +464,28 @@ int main(void)
 						};
 
 						mTimer_SetServoDuty(0,steer);
+						*/
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
 
+						LineVectors currentPixyLineVectors;
+						getLineVectorsFeature(pixy, currentPixyLineVectors);
+						preprocessingLineVectors(pixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
+						currentCenterPoint = computeCenterPoint(pixyLineVectors);
+						currentError = computeHorizontalError(currentCenterPoint.x);
+						fillErrorBuffer(currentError, errorBuffer);
+						currentSteer = calculateSteer(errorBuffer);
 
-
+						mTimer_SetServoDuty(0,currentSteer);
+												//Pot2 is beeing read after Program is being read
+						/*
+						if(Pot2 == 0){
+							mLeds_Write(kMaskLed3, kLedOn);
+						} else {
+							mLeds_Write(kMaskLed3, kLedOff);
+						}
+						Motor_SetSpeed(Pot2);
+						*/
 					}
 
 					testi++;

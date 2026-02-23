@@ -23,8 +23,8 @@ void estimateCenterPointFromSingleVector(CenterPoint &currentCp, LineVectors &lv
 	//make sure the vector is pointing upward
 		if(lv.v1.m_y0 > lv.v1.m_y1)
 		{
-		    std::swap(v.m_x0, v.m_x1);
-		    std::swap(v.m_y0, v.m_y1);
+		    std::swap(lv.v1.m_x0, lv.v1.m_x1);
+		    std::swap(lv.v1.m_y0, lv.v1.m_y1);
 		};
 	//	int len = root((v.m_y1-v.m_y0)^2+(v.m_x1-v.m_x0)^2);
 	//	if (len<)
@@ -76,8 +76,8 @@ CenterPoint computeCenterPoint(LineVectors &lv){
 	if (lv.useSingleVectorLogic){
 		estimateCenterPointFromSingleVector(currentCp, lv);
 	} else { //else do twoVectorLogic
-		int midX1 = (v1.m_x0 + v1.m_x1) / 2;
-		int midX2 = (v2.m_x0 + v2.m_x1) / 2;
+		int midX1 = (lv.v1.m_x0 + lv.v1.m_x1) / 2;
+		int midX2 = (lv.v2.m_x0 + lv.v2.m_x1) / 2;
 		//compare midX1 and midX2, the smaller one is leftX and the bigger one is rightX
 		int leftX = (midX1 < midX2) ? midX1 : midX2;
 		int rightX = (midX1 < midX2) ? midX2 : midX1;

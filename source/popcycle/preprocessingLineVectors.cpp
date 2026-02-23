@@ -4,9 +4,9 @@
  *  Created on: 20 Jan 2026
  *      Author: brunofigura
  */
-#include <Popcycle/preprocessingLineVectos.h>
 #include <stdbool.h>
 #include <math.h>
+#include <popcycle/preprocessingLineVectors.h>
 #include <algorithm>
 
 #include <Popcycle/lineVectors.h>

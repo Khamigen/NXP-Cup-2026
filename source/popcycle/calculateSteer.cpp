@@ -6,6 +6,7 @@
  */
 
 #include <PopCycle/calculateSteer.h>
+#include <PopCycle/eBuffer.h>
 
 static int bufferCount = 0;
 const float steerMax = 0.75f;
@@ -14,11 +15,11 @@ static float lastSteer = 0.0f;
 const float steerStepLimit = 0.5f;
 
 const float kD = 0.01f;
-const flaot kP = -0.05f;
+const float kP = -0.05f;
 
 static float lastAvgError = 0.0f;
 
-float calcualteSteer(eBuffer &eb){
+float calculateSteer(eBuffer &eb){
 	if(bufferCount < MA_WINDOW_SIZE)
 	        {bufferCount++;}
 
