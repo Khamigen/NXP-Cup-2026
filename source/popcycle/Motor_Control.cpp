@@ -7,12 +7,15 @@
 #include <Popcycle/Motor_Control.h>
 #include "fsl_common.h"
 #include "math.h"
+#include "algorithm"
 extern "C"{
 #include "Modules/mTimer.h"
 }
 //constants for speed contorl
-static const float speedMax = 1.0f;
+static const float speedMax = 0.0f;
 static const float speedMin = -0.6f;
+static const float speedCruise = -0.35f;
+static const float speedTurn = -0.45f;
 static const float kCurve = 0.8f;// relation between steer and speed, bigger kurve -> slower when steering.
 
 //EMA smoothing
@@ -30,26 +33,33 @@ void Motor_Init(void)
 
 void Motor_SetSpeed(float speed)
 {
-    if(speed > speedMax) {speed = speedMax;}
-    if(speed < speedMin) {speed = speedMin;}
+    speed = std::clamp(speed, speedMin, speedMax);
     mTimer_SetServoDuty(1, speed);
 }
 
 void Motor_SetSpeedCurve(float steer)
 {
+	/*
 	//determine the target speed will steering, bigger steer -> slower target speed
-	float speedTarget = speedMax - kCurve * fabs(steer);
-
-	//limit the range of target speed
-	if(speedTarget>speedMax)
-	{speedTarget=speedMax;}
-	if(speedTarget<speedMin)
-	{speedTarget=speedMin;}
+	float speedTarget = speedMax - kCurve * fabsf(steer);
+	speedTarget = std::clamp(speedTarget, speedMin, speedMax);
 
 	//Exponential Moving Average, smooth out the change of speed so it don't accel/break instnatly
-	speedEMA = 0.3 * (alpha * speedTarget + (1.0f - alpha) * speedEMA);
-	Motor_SetSpeed (speedEMA);
+	speedEMA = alpha * speedTarget + (1.0f - alpha) * speedEMA;
+	speedEMA = std::clamp(speedEMA, speedMin, speedMax);
+	//get speed from MotorB
+	//float rpmL = 0.0f, rpmR = 0.0f;
+	//mTimer_GetSpeed(&rpmL, &rpmR);
+	*/
+	float s = fabsf(steer) / 0.75f;  // 0..1
+	s = std::clamp(s, 0.0f, 1.0f);
+
+	float speedTarget = speedCruise + (speedTurn - speedCruise) * s;
+
+	speedEMA = alpha * speedTarget + (1.0f - alpha) * speedEMA;
+	speedEMA = std::clamp(speedEMA, speedTurn, speedCruise);
+
+	Motor_SetSpeed(speedEMA);
+
 }
-
-
 

@@ -179,6 +179,7 @@ void signal_init(void);
 short write2SD(sd_card_t *card, const char *str);
 short sdprintf8(sd_card_t *card,int zahl,const char *str);
 void logPixyVectors(sd_card_t *card, const Vector (&vec)[2], int time);
+void logSpeed(sd_card_t *card, float speed);
 #endif
 
 
@@ -459,8 +460,9 @@ int main(void)
 												//Pot2 is beeing read after Program is being read
 
 
-						Motor_SetSpeed(Pot2);
-
+						//Motor_SetSpeed(Pot2);
+						Motor_SetSpeedCurve(currentSteer);
+						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 					}
 
 					testi++;
@@ -718,10 +720,11 @@ int main(void)
 
 										mTimer_SetServoDuty(0,steer);
 										//Pot2 is beeing read after Program is being read
-										Motor_SetSpeed(Pot2);
+										Motor_SetSpeed(-0.4);
 				#if (SD_ENABLED)
 										//
 										//logPixyVectors(card, vectorData, timeakt);
+										logSpeed(card, aSpeedMotLeft);
 
 				#endif
 				#if (SD_ENABLED)
@@ -973,6 +976,12 @@ void logPixyVectors(sd_card_t *card,const Vector (&vec)[2], int time)
         sdprintf8(card, vec[i].m_y1, "; ");
     }
     write2SD(card, "\n");
+}
+
+void logSpeed(sd_card_t *card, float speed)
+{
+	sdprintf8(card, int(speed*100),"-");
+	write2SD(card,"\n");
 }
 
 #endif
