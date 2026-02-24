@@ -109,7 +109,7 @@ extern "C"
 #define	PROGRENNEN 		 0
 #define PROGSDDEBUG	 	 1
 
-#define TIMEDDRIVE	 2
+#define TIMEDDRIVE	 	 2
 #define PROGTESTRADLENK	 3
 #define PROGTESTBESCHL	 4
 #define PROGTESTBREMS	 5
