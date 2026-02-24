@@ -17,6 +17,7 @@
 #define LANE_HALF_WIDTH_PIXEL 25
 
 static CenterPoint lastCp = {FRAME_MIDDLE_X, FRAME_MIDDLE_Y};
+static CenterPoint currentCp = {FRAME_MIDDLE_X, FRAME_MIDDLE_Y};
 
 
 void estimateCenterPointFromSingleVector(CenterPoint &currentCp, LineVectors &lv){
@@ -51,25 +52,22 @@ void estimateCenterPointFromSingleVector(CenterPoint &currentCp, LineVectors &lv
 	    bool leftTurn  = (angle < -25);  // vector points leftward
 
 	    // case 1: right turn
-	    if(rightTurn)
+	    if (rightTurn) {
 	        currentCp.x = midX - LANE_HALF_WIDTH_PIXEL;
-
-	    // case 2: left turn
-	    if(leftTurn)
+	    }
+	    else if (leftTurn) {
 	        currentCp.x = midX + LANE_HALF_WIDTH_PIXEL;
-
-	    // case 3: angle close to 0, almost horizontal line, use the position of the line to calculate lane center
-	    // in this scenario, right outer line would be on the right side and vice versa
-
-	    if(slope < 0){
-	        currentCp.x + LANE_HALF_WIDTH_PIXEL;  // vector located at the right, turn right
-	    } else {
-	        currentCp.x - LANE_HALF_WIDTH_PIXEL;  // vector located at the left, turn left
+	    }
+	    else {
+	        if(slope < 0){
+	            currentCp.x = midX + LANE_HALF_WIDTH_PIXEL;
+	        } else {
+	            currentCp.x = midX - LANE_HALF_WIDTH_PIXEL;
+	        }
 	    }
 };
 
 CenterPoint computeCenterPoint(LineVectors &lv){
-	CenterPoint currentCp;
 	//Set y frameCenter - TODO: computeLogic not yet implemented
 	currentCp.y = FRAME_MIDDLE_Y;
 
@@ -83,8 +81,9 @@ CenterPoint computeCenterPoint(LineVectors &lv){
 		int rightX = (midX1 < midX2) ? midX2 : midX1;
 
 		currentCp.x = (leftX + rightX)/2;
-		lastCp = currentCp;
+        lastCp = currentCp;
 	}
+		return currentCp;
 };
 
 

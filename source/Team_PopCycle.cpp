@@ -463,28 +463,24 @@ int main(void)
 							mLeds_Write(kMaskLed4, kLedOff);
 						};
 
-						mTimer_SetServoDuty(0,steer);
+						//mTimer_SetServoDuty(0,steer);
 
 						//Pot2 is beeing read after Program is being read
 						Motor_SetSpeed(Pot2);
 
 						getLineVectorsFeature(pixy, currentPixyLineVectors);
 						preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
-						//currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
-						//currentError = computeHorizontalError(currentCenterPoint.x);
-						//fillErrorBuffer(currentError, errorBuffer);
-						//currentSteer = calculateSteer(errorBuffer);
-						/*
+						currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
+						currentError = computeHorizontalError(currentCenterPoint.x);
+						fillErrorBuffer(currentError, errorBuffer);
+						currentSteer = calculateSteer(errorBuffer);
+
 						mTimer_SetServoDuty(0,currentSteer);
 												//Pot2 is beeing read after Program is being read
 
-						if(Pot2 == 0){
-							mLeds_Write(kMaskLed3, kLedOn);
-						} else {
-							mLeds_Write(kMaskLed3, kLedOff);
-						}
+
 						Motor_SetSpeed(Pot2);
-						*/
+
 					}
 
 					testi++;
