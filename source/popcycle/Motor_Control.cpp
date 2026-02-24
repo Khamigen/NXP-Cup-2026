@@ -14,8 +14,8 @@ extern "C"{
 //constants for speed contorl
 static const float speedMax = 0.0f;
 static const float speedMin = -0.6f;
-static const float speedCruise = -0.35f;
-static const float speedTurn = -0.45f;
+static const float speedCruise = -0.32f;
+static const float speedTurn = -0.4f;
 static const float kCurve = 0.8f;// relation between steer and speed, bigger kurve -> slower when steering.
 
 //EMA smoothing
