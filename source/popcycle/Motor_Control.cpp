@@ -10,6 +10,7 @@
 #include "algorithm"
 #include <Popcycle/speedParam.h>
 extern "C"{
+#include "config.h"
 #include "Modules/mTimer.h"
 }
 //constants for speed contorl
@@ -24,25 +25,26 @@ static const float alpha = 0.2f;// used in EMA, bigger alpha->faster changes, sm
 static float speedEMA = speedMax;// used as result of current EMA calculation and buffer from last EMA
 void Motor_Init(void)
 {
-    mTimer_SetServoDuty(1, speedMax);   // Max
+    mTimer_SetServoDuty(SERVO_MOTOR, speedMax);   // Max
     SDK_DelayAtLeastUs(15000000, SystemCoreClock); // 15,000,000 us = 15s?
     mTimer_GetSpeed(&rpmL, &rpmMax);
-    mTimer_SetServoDuty(1, speedMin); // Min
+    mTimer_SetServoDuty(SERVO_MOTOR, speedMin); // Min
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
     mTimer_GetSpeed(&rpmL, &rpmMin);
-    mTimer_SetServoDuty(1, speedCruise); // Min
+    mTimer_SetServoDuty(SERVO_MOTOR, speedCruise); // Min
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
     mTimer_GetSpeed(&rpmL, &rpmCruise);
-    mTimer_SetServoDuty(1, speedTurn); // Min
+    mTimer_SetServoDuty(SERVO_MOTOR, speedTurn); // Min
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
     mTimer_GetSpeed(&rpmL, &rpmTurn);
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_SetServoDuty(SERVO_MOTOR, speedMin);
 }
 
 void Motor_SetSpeed(float speed)
 {
     speed = std::clamp(speed, speedMin, speedMax);
-    mTimer_SetServoDuty(1, speed);
+    mTimer_SetServoDuty(SERVO_MOTOR, speed);
 }
 
 void Motor_SetSpeedCurve(float steer)

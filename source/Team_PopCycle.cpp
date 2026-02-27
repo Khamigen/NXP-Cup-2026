@@ -386,14 +386,14 @@ int main(void)
 					//Dinge die man nur einmal machen moechte
 					if(doneinitflag==false) {
 						currentSteer = -0.1;
-						mTimer_SetServoDuty(0,currentSteer);
+						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 						usleep(3049000);   // 0.5 Sekunden warten
 
 						currentSteer = 0.1;
-						mTimer_SetServoDuty(0,currentSteer);
+						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 						usleep(3049000);   // 0.5 Sekunden warten
 						currentSteer = 0.0;
-						mTimer_SetServoDuty(0,currentSteer);
+						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 
 						doneinitflag=true;
 					}
@@ -457,7 +457,7 @@ int main(void)
 						fillErrorBuffer(currentError, errorBuffer);
 						currentSteer = calculateSteer(errorBuffer);
 
-						mTimer_SetServoDuty(0,currentSteer);
+						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 												//Pot2 is beeing read after Program is being read
 
 
@@ -511,14 +511,14 @@ int main(void)
 								//Dinge die man nur einmal machen moechte
 								if(doneinitflag==false) {
 									currentSteer = -0.1;
-									mTimer_SetServoDuty(0,currentSteer);
+									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 									usleep(3049000);   // 0.5 Sekunden warten
 
 									currentSteer = 0.1;
-									mTimer_SetServoDuty(0,currentSteer);
+									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 									usleep(3049000);   // 0.5 Sekunden warten
 									currentSteer = 0.0;
-									mTimer_SetServoDuty(0,currentSteer);
+									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 
 									doneinitflag=true;
 								}
@@ -583,7 +583,7 @@ int main(void)
 									fillErrorBuffer(currentError, errorBuffer);
 									currentSteer = calculateSteer(errorBuffer);
 
-									mTimer_SetServoDuty(0,currentSteer);
+									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 															//Pot2 is beeing read after Program is being read
 
 
@@ -636,14 +636,14 @@ int main(void)
 									//Dinge die man nur einmal machen moechte
 									if(doneinitflag==false) {
 										steer = -0.2;
-										mTimer_SetServoDuty(0,steer);
+										mTimer_SetServoDuty(SERVO_LENK,steer);
 										usleep(3049000);   // 0.5 Sekunden warten
 
 										steer = 0.2;
-										mTimer_SetServoDuty(0,steer);
+										mTimer_SetServoDuty(SERVO_LENK,steer);
 										usleep(3049000);   // 0.5 Sekunden warten
 										steer = 0.0;
-										mTimer_SetServoDuty(0,steer);
+										mTimer_SetServoDuty(SERVO_LENK,steer);
 
 										doneinitflag=true;
 									}
@@ -719,7 +719,7 @@ int main(void)
 											mLeds_Write(kMaskLed4, kLedOff);
 										};
 
-										mTimer_SetServoDuty(0,steer);
+										mTimer_SetServoDuty(SERVO_LENK,steer);
 										//Pot2 is beeing read after Program is being read
 										Motor_SetSpeed(-0.4);
 				#if (SD_ENABLED)

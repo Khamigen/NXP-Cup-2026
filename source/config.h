@@ -12,6 +12,10 @@
 #pragma once
 #define SD_ENABLED 1
 
+#define SERVO_MOTOR 0
+#define SERVO_LENK 1
+
+
 
 
 #endif /* CONFIG_H_ */
