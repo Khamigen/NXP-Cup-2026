@@ -464,6 +464,11 @@ int main(void)
 						//Motor_SetSpeed(Pot2);
 						Motor_SetSpeedCurve(currentSteer);
 						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
+						if(aSpeedMotRight == 0){
+							mLeds_Write(kMaskLed4,kLedOn);
+						} else {
+							mLeds_Write(kMaskLed4,kLedOff);
+						}
 					}
 
 					testi++;
