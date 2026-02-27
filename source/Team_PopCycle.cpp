@@ -323,6 +323,7 @@ int main(void)
 	//Motor init
 	Motor_Init();
 
+
 	sDelay = mDelay_GetDelay(kPit1, K_MAIN_INTERVAL);
 	//PRINTF("Hello World\n");
 	printf("HellO World: %ld %d\n",clock(),CLOCKS_PER_SEC);
@@ -447,7 +448,7 @@ int main(void)
 					}
 					else {
 
-						Motor_SetSpeed(Pot2);
+						//Motor_SetSpeed(Pot2);
 
 						getLineVectorsFeature(pixy, currentPixyLineVectors);
 						preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
@@ -680,7 +681,7 @@ int main(void)
 
 					#if (SD_ENABLED)
 											SYSMPU_Enable(SYSMPU, false);
-											//BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
+											BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
 
 											if (SD_Init(card))
 											{

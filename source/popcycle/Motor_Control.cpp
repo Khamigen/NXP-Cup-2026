@@ -8,14 +8,15 @@
 #include "fsl_common.h"
 #include "math.h"
 #include "algorithm"
+#include <Popcycle/speedParam.h>
 extern "C"{
 #include "Modules/mTimer.h"
 }
 //constants for speed contorl
-static const float speedMax = 0.0f;
-static const float speedMin = -0.6f;
-static const float speedCruise = -0.32f;
-static const float speedTurn = -0.4f;
+//static const float speedMax = 0.0f;
+//static const float speedMin = -0.6f;
+//static const float speedCruise = -0.32f;
+//static const float speedTurn = -0.4f;
 static const float kCurve = 0.8f;// relation between steer and speed, bigger kurve -> slower when steering.
 
 //EMA smoothing
@@ -23,11 +24,18 @@ static const float alpha = 0.2f;// used in EMA, bigger alpha->faster changes, sm
 static float speedEMA = speedMax;// used as result of current EMA calculation and buffer from last EMA
 void Motor_Init(void)
 {
-    // 範例: 設定最大 / 最小速度
     mTimer_SetServoDuty(1, speedMax);   // Max
     SDK_DelayAtLeastUs(15000000, SystemCoreClock); // 15,000,000 us = 15s?
-
+    mTimer_GetSpeed(&rpmL, &rpmMax);
     mTimer_SetServoDuty(1, speedMin); // Min
+    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_GetSpeed(&rpmL, &rpmMin);
+    mTimer_SetServoDuty(1, speedCruise); // Min
+    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_GetSpeed(&rpmL, &rpmCruise);
+    mTimer_SetServoDuty(1, speedTurn); // Min
+    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_GetSpeed(&rpmL, &rpmTurn);
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
 }
 
