@@ -40,6 +40,7 @@ extern "C"
 {
 #include "config.h"
 
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -80,6 +81,7 @@ extern "C"
 #include <Popcycle/lineVectors.h>
 #include <Popcycle/centerPoint.h>
 #include <Popcycle/eBuffer.h>
+#include <PopCycle/logger.h>
 
 
 
@@ -982,6 +984,33 @@ void logPixyVectors(sd_card_t *card,const Vector (&vec)[2], int time)
         sdprintf8(card, vec[i].m_y1, "; ");
     }
     write2SD(card, "\n");
+}
+
+void logData(sd_card_t *card, int time, SimpleLogger *sl){
+	sdprintf8(card, time, "; ");
+
+	sdprintf8(card, sl->singleVectorDetected, "; ");
+	sdprintf8(card, sl->laneCenterOffsetX, "; ");
+
+	write2SD(card, "\n");
+}
+
+void logData(sd_card_t *card, int time, DetailedLogger *dl){
+	sdprintf8(card, time, "; ");
+
+	sdprintf8(card, time, "; ");
+
+	sdprintf8(card, dl->singleVectorDetected, "; ");
+	sdprintf8(card, dl->laneCenterOffsetX, "; ");
+	sdprintf8(card, dl->laneCenteroffsetY, "; ");
+
+	sdprintf8(card, dl->vector1X, ";");
+	sdprintf8(card, dl->vector1Y, ";");
+	sdprintf8(card, dl->vector2X, ";");
+	sdprintf8(card, dl->vector2Y, ";");
+
+
+	write2SD(card, "\n");
 }
 
 void logSpeed(sd_card_t *card, float speed)
