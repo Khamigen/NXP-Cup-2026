@@ -17,10 +17,14 @@ typedef struct {
 	bool singleVectorDetected;
 	int laneCenterOffsetX;
 	int laneCenteroffsetY;
-	int vector1X;
-	int vector1Y;
-	int vector2X;
-	int vector2Y;
+	int vector1X0;
+	int vector1X1;
+	int vector1Y0;
+	int vector1Y1;
+	int vector2X0;
+	int vector2X1;
+	int vector2Y0;
+	int vector2Y1;
 } DetailedLogger;
 
 #endif /* POPCYCLE_LOGGER_H_ */

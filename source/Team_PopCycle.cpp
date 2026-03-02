@@ -109,10 +109,11 @@ extern "C"
 
 //hier 8 Programme = DIP Schalter 1 bis 3
 #define	PROGRENNEN 		 0
-#define PROGSDDEBUG	 	 1
 
-#define TIMEDDRIVE	 	 2
-#define PROGTESTRADLENK	 3
+#define TIMEDDRIVE	 	 1
+#define DEBUG1	 	 	 2
+#define DEBUG3	 		 3
+
 #define PROGTESTBESCHL	 4
 #define PROGTESTBREMS	 5
 #define PROGFOLLOWOBJECT 6
@@ -220,7 +221,9 @@ int main(void)
 	float aSpeedMotRight;
 
 	// Sensor value
-	SRAWDATAEnum aAccel;   // in g
+	/*
+	 *
+	 SRAWDATAEnum aAccel;   // in g
 	SRAWDATAEnum aMagneto; // in micro teslas
 	float aYaw;			   // in degree
 	float aRoll;		   // in degree
@@ -229,16 +232,15 @@ int main(void)
 	float aAngVel_Y=0.0;		//mdps = milli degree per second ?
 	float aAngVel_Z=0.0;		//mdps = milli degree per second ?
 	float Winkelsum_x,Winkelsum_y,Winkelsum_z;
+    */
 
 	//Variablen fuer die genutzten Programme
 	clock_t timeakt,timemax;
 	UInt16 timermark1;
 	Int16 difftimer1,difftimer2,mdifftimer1,mdifftimer2;
 
-	Vector vectorData[2] = {
-	    {0, 0, 0, 0},
-	    {0, 0, 0, 0}
-	};
+	static SimpleLogger simpleLogger = {0, 0};
+	static DetailedLogger detailedLogger = {0, 0, 0, 0, 0, 0, 0};
 
 
 	static float ILeft[10]={0,0,0,0,0,0,0,0,0,0};
@@ -636,7 +638,7 @@ int main(void)
 							Startbutton_old=Startbutton;
 							Button2_old=Button2;
 						}
-			else if(Programm == PROGSDDEBUG){
+			else if(Programm == DEBUG1){
 				if(Zustand==ZINIT) {
 									//kritische Groessen signalisieren
 
@@ -716,27 +718,30 @@ int main(void)
 									}
 									else {
 
-										//hier steering für Programm Rennen
-										//should be refactored to return error -> different func to convert error to steer
+										getLineVectorsFeature(pixy, currentPixyLineVectors);
+										preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
+										currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
+										currentError = computeHorizontalError(currentCenterPoint.x);
+										fillErrorBuffer(currentError, errorBuffer);
+										currentSteer = calculateSteer(errorBuffer);
 
-										//TODO: debug version of functions
-										if(steer == 0){
-											mLeds_Write(kMaskLed4, kLedOn);
-										}else if(steer != 0){
-											mLeds_Write(kMaskLed4, kLedOff);
-										};
+										mTimer_SetServoDuty(SERVO_LENK,currentSteer);
+																//Pot2 is beeing read after Program is being read
 
-										mTimer_SetServoDuty(SERVO_LENK,steer);
-										//Pot2 is beeing read after Program is being read
-										Motor_SetSpeed(-0.4);
+
+										//Motor_SetSpeed(Pot2);
+										Motor_SetSpeedCurve(currentSteer);
+										mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 				#if (SD_ENABLED)
 										//
 										//logPixyVectors(card, vectorData, timeakt);
-										logSpeed(card, aSpeedMotLeft);
+										simpleLogger.laneCenterOffsetX= 39 - currentCenterPoint.x;	//Frame Middlepoint X - calcualted location on x axis of track
+										simpleLogger.singleVectorDetected = currentPixyLineVectors.useSingleVectorLogic;
+										logData(card, timeakt, simpleLogger);
 
 				#endif
 				#if (SD_ENABLED)
-										write2SD(card,"\n");
+										write2SD(card,"\n");	//brauchem wir das zweimal???
 				#endif
 
 										//Zeitmarke nehmen fuer die Bestimmung der Berechnungsdauer (in ms)
@@ -764,21 +769,7 @@ int main(void)
 									Zustand=ZHALT;
 								}
 								else if(Zustand==ZHALT) {
-									//Parameter per LED anzeigen
-									if((Button2==true)&&(Button2_old==false)) {
-										zeigewert=(++zeigewert)%2;
-									}
 
-									if(zeigewert==0) {
-									}
-									else if(zeigewert==1) {
-										//vierfacher nmax Wert
-										mLeds_Write(kMaskLed2,kLedOff);
-										mLeds_Write(kMaskLed3,kLedOff);
-										mLeds_Write(kMaskLed4,kLedOn);
-									}
-
-									usleep(18000000);
 
 									//Reset bei Startbutton=true
 									if((Startbutton==true)&&(Startbutton_old==false)) {
@@ -792,7 +783,163 @@ int main(void)
 								Startbutton_old=Startbutton;
 								Button2_old=Button2;
 
-			}
+							}
+			else if(Programm == DEBUG2){
+							if(Zustand==ZINIT) {
+												//kritische Groessen signalisieren
+
+												//Dinge die man nur einmal machen moechte
+												if(doneinitflag==false) {
+													steer = -0.2;
+													mTimer_SetServoDuty(SERVO_LENK,steer);
+													usleep(3049000);   // 0.5 Sekunden warten
+
+													steer = 0.2;
+													mTimer_SetServoDuty(SERVO_LENK,steer);
+													usleep(3049000);   // 0.5 Sekunden warten
+													steer = 0.0;
+													mTimer_SetServoDuty(SERVO_LENK,steer);
+
+													doneinitflag=true;
+												}
+
+												//START bei Startbutton=true
+												if((Startbutton==true)&&(Startbutton_old==false)) {
+													mLeds_Write(kMaskLed2,kLedOff);
+													mLeds_Write(kMaskLed3,kLedOn);
+													mLeds_Write(kMaskLed4,kLedOff);
+
+													printf("START!\n");
+
+													Zustand_old=Zustand;
+													Zustand=ZSTART;
+
+													doneinitflag=false;
+													startflag=0;
+												}
+											}
+											else if(Zustand==ZSTART) {
+												//hier Startdinge erledigen
+
+												//RUN bei Startbutton=true
+												if((Startbutton==true)&&(Startbutton_old==false)) {
+													if(startflag<2) {
+														startflag++;
+													}
+													else {
+														mLeds_Write(kMaskLed1,kLedOff);
+														mLeds_Write(kMaskLed2,kLedOff);
+														mLeds_Write(kMaskLed3,kLedOff);
+														mLeds_Write(kMaskLed4,kLedOff);
+
+														usleep(30490000);   // 5 Sekunden warten
+
+								#if (SD_ENABLED)
+														SYSMPU_Enable(SYSMPU, false);
+														BOARD_SD_Config(card, NULL, BOARD_SDMMC_SD_HOST_IRQ_PRIORITY, NULL);
+
+														if (SD_Init(card))
+														{
+															mLeds_Write(kMaskLed2,kLedOn);
+															printf("\nSD card init failed.\n");
+															return 0;
+														}
+								#endif
+														testi=1;
+														mLeds_Write(kMaskLed1,kLedOn);
+
+														startflag=0;
+														Zustand_old=Zustand;
+														Zustand=ZRUN;
+													}
+												}
+											}
+											else if(Zustand==ZRUN) {
+												timeakt=(clock_t)(testi*K_MAIN_INTERVAL);	//get time
+												if(			((Startbutton==true)&&(Startbutton_old==false))
+														  ||(timeakt>10000)) {	//goes to stop after 10000 timeunit (sec, ms??)
+													printf("STOP!\n");
+													Zustand_old=Zustand;
+													Zustand=ZSTOP;
+												}
+												else {
+
+													getLineVectorsFeature(pixy, currentPixyLineVectors);
+													preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
+													currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
+													currentError = computeHorizontalError(currentCenterPoint.x);
+													fillErrorBuffer(currentError, errorBuffer);
+													currentSteer = calculateSteer(errorBuffer);
+
+													mTimer_SetServoDuty(SERVO_LENK,currentSteer);
+																			//Pot2 is beeing read after Program is being read
+
+
+													//Motor_SetSpeed(Pot2);
+													Motor_SetSpeedCurve(currentSteer);
+													mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
+							#if (SD_ENABLED)
+													//
+													//logPixyVectors(card, vectorData, timeakt);
+													detailedLogger.laneCenterOffsetX= 39 - currentCenterPoint.x;	//Frame Middlepoint X - calcualted location on x axis of track
+													detailedLogger.singleVectorDetected = currentPixyLineVectors.useSingleVectorLogic;
+													detailedLogger.laneCenteroffsetY = currentCenterPoint.y;
+													detailedLogger.vector1X0 = currentPixyLineVectors.v1.m_x0;
+													detailedLogger.vector1X1 = currentPixyLineVectors.v1.m_x1;
+													detailedLogger.vector1Y0 = currentPixyLineVectors.v1.m_y0;
+													detailedLogger.vector1Y1 = currentPixyLineVectors.v1.m_y1;
+
+													detailedLogger.vector2X0 = currentPixyLineVectors.v2.m_x0;
+													detailedLogger.vector2X1 = currentPixyLineVectors.v2.m_x1;
+													detailedLogger.vector2Y0 = currentPixyLineVectors.v2.m_y0;
+													detailedLogger.vector2Y1 = currentPixyLineVectors.v2.m_y1;
+													logData(card, timeakt, detailedLogger);
+
+							#endif
+							#if (SD_ENABLED)
+													write2SD(card,"\n");	//brauchem wir das zweimal???
+							#endif
+
+													//Zeitmarke nehmen fuer die Bestimmung der Berechnungsdauer (in ms)
+													timermark1=mDelay_GetDelay(kPit1,sDelay);
+
+													//Hier die Berechnungen durchfuehren
+
+													//Zeitdauer der Berechnung bestimmen (in ms)
+													difftimer1=timermark1-mDelay_GetDelay(kPit1,sDelay);
+												}
+
+												testi++;
+											}
+											else if(Zustand==ZSTOP) {
+
+							#if (SD_ENABLED)
+												write2SD(card,"\n");
+												write2SD(card,NULL);
+												SD_Deinit(card);
+							#endif
+
+												zeigewert=0;
+												Motor_SetSpeed(-1);	//stopping motor
+												Zustand_old=Zustand;
+												Zustand=ZHALT;
+											}
+											else if(Zustand==ZHALT) {
+
+
+												//Reset bei Startbutton=true
+												if((Startbutton==true)&&(Startbutton_old==false)) {
+													printf("RESET!\n");
+													Zustand_old=Zustand;
+													Zustand=ZINIT;
+												}
+
+											}
+
+											Startbutton_old=Startbutton;
+											Button2_old=Button2;
+
+						}
 		}
 	}
 
@@ -1004,10 +1151,14 @@ void logData(sd_card_t *card, int time, DetailedLogger *dl){
 	sdprintf8(card, dl->laneCenterOffsetX, "; ");
 	sdprintf8(card, dl->laneCenteroffsetY, "; ");
 
-	sdprintf8(card, dl->vector1X, ";");
-	sdprintf8(card, dl->vector1Y, ";");
-	sdprintf8(card, dl->vector2X, ";");
-	sdprintf8(card, dl->vector2Y, ";");
+	sdprintf8(card, dl->vector1X0, ";");
+	sdprintf8(card, dl->vector1X1, ";");
+	sdprintf8(card, dl->vector1Y0, ";");
+	sdprintf8(card, dl->vector1Y1, ";");
+	sdprintf8(card, dl->vector2X0, ";");
+	sdprintf8(card, dl->vector2X1, ";");
+	sdprintf8(card, dl->vector2Y0, ";");
+	sdprintf8(card, dl->vector2Y1, ";");
 
 
 	write2SD(card, "\n");
