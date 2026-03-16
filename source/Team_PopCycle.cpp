@@ -112,7 +112,7 @@ extern "C"
 
 #define TIMEDDRIVE	 	 1
 #define DEBUG1	 	 	 2
-#define DEBUG3	 		 3
+#define DEBUG2	 		 3
 
 #define PROGTESTBESCHL	 4
 #define PROGTESTBREMS	 5
@@ -176,6 +176,8 @@ Int8 lese_Programm(void);
 short sprintfr8(char *ptr,int zahl, const char *str);
 void zeige_Wert(int wert);
 void signal_init(void);
+void logData(sd_card_t *card, int time, SimpleLogger sl);
+void logData(sd_card_t *card, int time, DetailedLogger dl);
 
 #if (SD_ENABLED)
 
@@ -1133,32 +1135,32 @@ void logPixyVectors(sd_card_t *card,const Vector (&vec)[2], int time)
     write2SD(card, "\n");
 }
 
-void logData(sd_card_t *card, int time, SimpleLogger *sl){
+void logData(sd_card_t *card, int time, SimpleLogger sl){
 	sdprintf8(card, time, "; ");
 
-	sdprintf8(card, sl->singleVectorDetected, "; ");
-	sdprintf8(card, sl->laneCenterOffsetX, "; ");
+	sdprintf8(card, sl.singleVectorDetected, "; ");
+	sdprintf8(card, sl.laneCenterOffsetX, "; ");
 
 	write2SD(card, "\n");
 }
 
-void logData(sd_card_t *card, int time, DetailedLogger *dl){
+void logData(sd_card_t *card, int time, DetailedLogger dl){
 	sdprintf8(card, time, "; ");
 
 	sdprintf8(card, time, "; ");
 
-	sdprintf8(card, dl->singleVectorDetected, "; ");
-	sdprintf8(card, dl->laneCenterOffsetX, "; ");
-	sdprintf8(card, dl->laneCenteroffsetY, "; ");
+	sdprintf8(card, dl.singleVectorDetected, "; ");
+	sdprintf8(card, dl.laneCenterOffsetX, "; ");
+	sdprintf8(card, dl.laneCenteroffsetY, "; ");
 
-	sdprintf8(card, dl->vector1X0, ";");
-	sdprintf8(card, dl->vector1X1, ";");
-	sdprintf8(card, dl->vector1Y0, ";");
-	sdprintf8(card, dl->vector1Y1, ";");
-	sdprintf8(card, dl->vector2X0, ";");
-	sdprintf8(card, dl->vector2X1, ";");
-	sdprintf8(card, dl->vector2Y0, ";");
-	sdprintf8(card, dl->vector2Y1, ";");
+	sdprintf8(card, dl.vector1X0, ";");
+	sdprintf8(card, dl.vector1X1, ";");
+	sdprintf8(card, dl.vector1Y0, ";");
+	sdprintf8(card, dl.vector1Y1, ";");
+	sdprintf8(card, dl.vector2X0, ";");
+	sdprintf8(card, dl.vector2X1, ";");
+	sdprintf8(card, dl.vector2Y0, ";");
+	sdprintf8(card, dl.vector2Y1, ";");
 
 
 	write2SD(card, "\n");
