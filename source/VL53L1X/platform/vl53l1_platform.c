@@ -22,22 +22,26 @@ int8_t VL53L1_WriteMulti( uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t
 	
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
-	
-    uint32_t i;
+	uint32_t i;
 
-    for(i=0;i<count;i++)
-        VL53L1_RdByte(dev, index+i, &pdata[i]);
+	for(i = 0; i < count; i++)
+	    VL53L1_WrByte(dev, index + i, pdata[i]);
 
-    return 0;
+	return 0;
 }
 
 int8_t VL53L1_ReadMulti(uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t count){
-	uint8_t status = 255;
+	//uint8_t status = 255;
 	
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
+	 uint32_t i;
+
+	 for(i = 0; i < count; i++)
+		 VL53L1_RdByte(dev, index + i, &pdata[i]);
+
+	 return 0;
 	
-	return status;
 }
 
 int8_t VL53L1_WrByte(uint16_t dev, uint16_t index, uint8_t data) {
@@ -45,27 +49,27 @@ int8_t VL53L1_WrByte(uint16_t dev, uint16_t index, uint8_t data) {
 	
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
-	while(iI2C_ReadStatus(kBUSY));
+    while(iI2C_ReadStatus(kBUSY));
 
-	iI2C_SetAckMode(kNoAck);
-	iI2C_TxRxSelect(kTxMode);
-	iI2C_SetStartState();
+    iI2C_TxRxSelect(kTxMode);
 
-	iI2C_SendData((dev << 1) | 0);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SetStartState();
 
-	iI2C_SendData(index >> 8);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SendData((dev<<1) | 0);
+    iI2C_WaitEndOfRxOrTx();
 
-	iI2C_SendData(index & 0xFF);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SendData(index >> 8);
+    iI2C_WaitEndOfRxOrTx();
 
-	iI2C_SendData(data);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SendData(index & 0xFF);
+    iI2C_WaitEndOfRxOrTx();
 
-	iI2C_SetStopState();
+    iI2C_SendData(data);
+    iI2C_WaitEndOfRxOrTx();
 
-	return 0;
+    iI2C_SetStopState();
+
+    return 0;
 }
 
 int8_t VL53L1_WrWord(uint16_t dev, uint16_t index, uint16_t data) {
@@ -100,32 +104,37 @@ int8_t VL53L1_RdByte(uint16_t dev, uint16_t index, uint8_t *data) {
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
 	
-	while(iI2C_ReadStatus(kBUSY));
+    while(iI2C_ReadStatus(kBUSY));
 
-	iI2C_SetAckMode(kNoAck);
-	iI2C_TxRxSelect(kTxMode);
+    iI2C_TxRxSelect(kTxMode);
+    iI2C_SetStartState();
 
-	iI2C_SetStartState();
-	iI2C_SendData((dev << 1) | 0);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SendData((dev) | 0);
+    iI2C_WaitEndOfRxOrTx();
 
-	iI2C_SendData(index >> 8);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SendData(index >> 8);
+    iI2C_WaitEndOfRxOrTx();
 
-	iI2C_SendData(index & 0xFF);
-	iI2C_WaitEndOfRxOrTx();
+    iI2C_SendData(index & 0xFF);
+    iI2C_WaitEndOfRxOrTx();
 
     iI2C_SetRepeatedStartSate();
-    iI2C_SendData((dev << 1) | 1);
+
+    iI2C_SendData((dev) | 1);
     iI2C_WaitEndOfRxOrTx();
 
     iI2C_TxRxSelect(kRxMode);
+
+    /* last byte → NACK */
+    iI2C_SetAckMode(kNoAck);
+
     *data = iI2C_ReadData();
     iI2C_WaitEndOfRxOrTx();
 
     iI2C_SetStopState();
 
     return 0;
+
 }
 
 int8_t VL53L1_RdWord(uint16_t dev, uint16_t index, uint16_t *data) {
@@ -168,5 +177,6 @@ int8_t VL53L1_WaitMs(uint16_t dev, int32_t wait_ms){
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
 	usleep(wait_ms*1000);
+
 	return 0;
 }

@@ -182,7 +182,7 @@ void logPixyVectors(sd_card_t *card, const Vector (&vec)[2], int time);
 void logSpeed(sd_card_t *card, float speed);
 #endif
 
-
+static float multiplierTOF = 1.0f;
 
 /*
  * @brief   Application entry point.
@@ -323,6 +323,7 @@ int main(void)
 	//Motor init
 	Motor_Init();
 
+	TOF_init();
 
 	sDelay = mDelay_GetDelay(kPit1, K_MAIN_INTERVAL);
 	//PRINTF("Hello World\n");
@@ -463,15 +464,15 @@ int main(void)
 
 						//Motor_SetSpeed(Pot2);
 						float speed = Motor_SetSpeedCurve(currentSteer);
-						float multiplierTOF = TOF_update();
+						multiplierTOF = TOF_update();
 						speed = multiplierTOF * speed;
 						Motor_SetSpeed(speed);
-						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-						if(aSpeedMotRight == 0){
-							mLeds_Write(kMaskLed4,kLedOn);
-						} else {
-							mLeds_Write(kMaskLed4,kLedOff);
-						}
+//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
+//						if(aSpeedMotRight == 0){
+//							mLeds_Write(kMaskLed4,kLedOn);
+//						} else {
+//							mLeds_Write(kMaskLed4,kLedOff);
+//						}
 					}
 
 					testi++;

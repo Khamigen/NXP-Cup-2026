@@ -9,10 +9,11 @@
 extern "C"{
 #include <VL53L1X/core/VL53L1X_api.h>
 }
-#define TOF_ADDR 0x29
+#define TOF_ADDR 0x52
 
 const float distanceStop = 200.0f; //200mm
 const float distanceSlow = 800.0f; //800mm
+static float distanceFiltered = 0.0f;
 
 void TOF_init(void){
     uint8_t status;
@@ -40,21 +41,29 @@ float TOF_update(void)
     uint16_t distance;
 
     VL53L1X_CheckForDataReady(TOF_ADDR, &ready);
+    uint16_t id;
+    VL53L1_WaitMs(TOF_ADDR, 10);
+    VL53L1X_GetSensorId(TOF_ADDR, &id);
+    if(!ready)
+    	return 1.0f;
 
-    if(ready)
-    {
-        VL53L1X_GetDistance(TOF_ADDR, &distance);
-        VL53L1X_ClearInterrupt(TOF_ADDR);
 
-        //filter to avoid jitter
-        float alpha = 0.3f;
-        static float distanceFiltered = alpha * distance + (1.0f-alpha) * distanceFiltered;
-        //linear slowdown
-        float multiplierTOF = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
+    VL53L1_WaitMs(TOF_ADDR, 10);
+    VL53L1X_GetSensorId(TOF_ADDR, &id);
 
-        multiplierTOF = std::clamp(multiplierTOF,0.0f,1.0f);
+    VL53L1X_GetDistance(TOF_ADDR, &distance);
+    VL53L1X_ClearInterrupt(TOF_ADDR);
 
-        return multiplierTOF;
-    }
+    //filter to avoid jitter
+    float alpha = 0.3f;
+    distanceFiltered = alpha * distance + (1.0f-alpha) * distanceFiltered;
+    if (distanceFiltered == 0)
+    	distanceFiltered = distance;
+    //linear brake
+    float multiplierTOF = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
+
+    multiplierTOF = std::clamp(multiplierTOF,0.0f,1.0f);
+
+    return multiplierTOF;
 }
 
