@@ -90,7 +90,7 @@ extern "C"
 #include <Popcycle/fillErrorBuffer.h>
 #include <Popcycle/calculateSteer.h>
 
-
+#include <Popcycle/TOF.h>
 
 /* Pixy 2 */
 #include "Pixy/Pixy2SPI_SS.h"
@@ -462,7 +462,10 @@ int main(void)
 
 
 						//Motor_SetSpeed(Pot2);
-						Motor_SetSpeedCurve(currentSteer);
+						float speed = Motor_SetSpeedCurve(currentSteer);
+						float multiplierTOF = TOF_update();
+						speed = multiplierTOF * speed;
+						Motor_SetSpeed(speed);
 						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 						if(aSpeedMotRight == 0){
 							mLeds_Write(kMaskLed4,kLedOn);

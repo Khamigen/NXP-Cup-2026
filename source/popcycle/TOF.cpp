@@ -5,8 +5,14 @@
  *      Author: j6895
  */
 
+#include "algorithm"
+extern "C"{
 #include <VL53L1X/core/VL53L1X_api.h>
+}
 #define TOF_ADDR 0x29
+
+const float distanceStop = 200.0f; //200mm
+const float distanceSlow = 800.0f; //800mm
 
 void TOF_init(void){
     uint8_t status;
@@ -28,7 +34,7 @@ void TOF_init(void){
     VL53L1X_StartRanging(TOF_ADDR);
 }
 
-void TOF_update()
+float TOF_update(void)
 {
     uint8_t ready;
     uint16_t distance;
@@ -40,7 +46,15 @@ void TOF_update()
         VL53L1X_GetDistance(TOF_ADDR, &distance);
         VL53L1X_ClearInterrupt(TOF_ADDR);
 
-        // obstacle logic here
+        //filter to avoid jitter
+        float alpha = 0.3f;
+        static float distanceFiltered = alpha * distance + (1.0f-alpha) * distanceFiltered;
+        //linear slowdown
+        float multiplierTOF = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
+
+        multiplierTOF = std::clamp(multiplierTOF,0.0f,1.0f);
+
+        return multiplierTOF;
     }
 }
 

@@ -47,7 +47,7 @@ void Motor_SetSpeed(float speed)
     mTimer_SetServoDuty(SERVO_MOTOR, speed);
 }
 
-void Motor_SetSpeedCurve(float steer)
+float Motor_SetSpeedCurve(float steer)
 {
 	/*
 	//determine the target speed will steering, bigger steer -> slower target speed
@@ -69,7 +69,6 @@ void Motor_SetSpeedCurve(float steer)
 	speedEMA = alpha * speedTarget + (1.0f - alpha) * speedEMA;
 	speedEMA = std::clamp(speedEMA, speedTurn, speedCruise);
 
-	Motor_SetSpeed(speedEMA);
-
+	return speedEMA;
 }
 

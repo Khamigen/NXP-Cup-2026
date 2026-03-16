@@ -9,8 +9,8 @@
 #define POPCYCLE_MOTOR_CONTROL_H_
 
 
-void Motor_Init(void);  // 初始化 ESC，設定最小/最大速度
-void Motor_SetSpeed(float speed); // 設定車輪速度 (-1.0 ~ 1.0)
-void Motor_SetSpeedCurve(float steer);
+void Motor_Init(void);  // init ESC，set max/min speed
+void Motor_SetSpeed(float speed); // set speed (-1.0 ~ 1.0)
+float Motor_SetSpeedCurve(float steer);
 
 #endif /* POPCYCLE_MOTOR_CONTROL_H_ */
