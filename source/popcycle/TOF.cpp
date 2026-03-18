@@ -17,12 +17,18 @@ static float distanceFiltered = 0.0f;
 
 void TOF_init(void){
     uint8_t status;
+    uint8_t boot = 0;
+    uint8_t state = 0;
 
+    VL53L1_WaitMs(TOF_ADDR, 10);
+    do {
+        VL53L1X_BootState(TOF_ADDR, &state);
+    } while(state == 0);
     // Initialize sensor
     status = VL53L1X_SensorInit(TOF_ADDR);
 
     // Set long distance mode (better for obstacle detection)
-    VL53L1X_SetDistanceMode(TOF_ADDR, 2);
+    VL53L1X_SetDistanceMode(TOF_ADDR, 1);
 
     // Measurement timing budget (ms)
     // Lower = faster but less accurate
@@ -37,32 +43,29 @@ void TOF_init(void){
 
 float TOF_update(void)
 {
-    uint8_t ready;
-    uint16_t distance;
+	uint8_t ready = 0;
+    uint16_t distance = 0;
 
+    //Polling
     VL53L1X_CheckForDataReady(TOF_ADDR, &ready);
-    uint16_t id;
-    VL53L1_WaitMs(TOF_ADDR, 10);
-    VL53L1X_GetSensorId(TOF_ADDR, &id);
     if(!ready)
-    	return 1.0f;
+    	return (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
 
-
-    VL53L1_WaitMs(TOF_ADDR, 10);
-    VL53L1X_GetSensorId(TOF_ADDR, &id);
-
+    // read distance
     VL53L1X_GetDistance(TOF_ADDR, &distance);
+    // clear interrupt
     VL53L1X_ClearInterrupt(TOF_ADDR);
-
-    //filter to avoid jitter
+    // simple EMA filter to avoid jitter
     float alpha = 0.3f;
-    distanceFiltered = alpha * distance + (1.0f-alpha) * distanceFiltered;
-    if (distanceFiltered == 0)
-    	distanceFiltered = distance;
-    //linear brake
-    float multiplierTOF = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
+    static float distanceFiltered = 0.0f;
+    if (distanceFiltered == 0.0f)
+        distanceFiltered = distance;
+    else
+        distanceFiltered = alpha * distance + (1.0f - alpha) * distanceFiltered;
 
-    multiplierTOF = std::clamp(multiplierTOF,0.0f,1.0f);
+    // brake multiplier
+    float multiplierTOF = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
+    multiplierTOF = std::clamp(multiplierTOF, 0.0f, 1.0f);
 
     return multiplierTOF;
 }

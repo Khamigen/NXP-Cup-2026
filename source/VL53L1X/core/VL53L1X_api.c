@@ -17,6 +17,9 @@
 
 #include "VL53L1X_api.h"
 #include <string.h>
+#define VL53L1X_RESULT__DISTANCE_HIGH 0x1E
+#define VL53L1X_RESULT__DISTANCE_LOW  0x1F
+#define VL53L1X_RESULT__RANGE_STATUS  0x006
 
 #if 0
 uint8_t VL51L1X_NVM_CONFIGURATION[] = {

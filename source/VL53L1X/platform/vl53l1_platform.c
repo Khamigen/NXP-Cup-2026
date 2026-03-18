@@ -16,18 +16,37 @@
 #include <math.h>
 #include <Interfaces/iI2C.h>
 #include <Modules/mDelay.h>
+#include "MK64F12.h"
 
 int8_t VL53L1_WriteMulti( uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t count) {
 	//uint8_t status = 255;
 	
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
-	uint32_t i;
+    while(iI2C_ReadStatus(kBUSY));
 
-	for(i = 0; i < count; i++)
-	    VL53L1_WrByte(dev, index + i, pdata[i]);
+    iI2C_TxRxSelect(kTxMode);
+    I2C0->S = I2C_S_IICIF_MASK;//clear flag
+    iI2C_SetStartState();
 
-	return 0;
+    iI2C_SendData((dev) | 0);
+    iI2C_WaitEndOfRxOrTx();
+
+    iI2C_SendData(index >> 8);
+    iI2C_WaitEndOfRxOrTx();
+
+    iI2C_SendData(index & 0xFF);
+    iI2C_WaitEndOfRxOrTx();
+
+    for(uint32_t i = 0; i < count; i++)
+    {
+        iI2C_SendData(pdata[i]);
+        iI2C_WaitEndOfRxOrTx();
+    }
+
+    iI2C_SetStopState();
+
+    return 0;
 }
 
 int8_t VL53L1_ReadMulti(uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t count){
@@ -35,13 +54,45 @@ int8_t VL53L1_ReadMulti(uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t c
 	
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
-	 uint32_t i;
+    while(iI2C_ReadStatus(kBUSY));
 
-	 for(i = 0; i < count; i++)
-		 VL53L1_RdByte(dev, index + i, &pdata[i]);
+    /* write index */
+    iI2C_TxRxSelect(kTxMode);
+    iI2C_SetStartState();
 
-	 return 0;
-	
+    iI2C_SendData((dev) | 0);
+    iI2C_WaitEndOfRxOrTx();
+
+    iI2C_SendData(index >> 8);
+    iI2C_WaitEndOfRxOrTx();
+
+    iI2C_SendData(index & 0xFF);
+    iI2C_WaitEndOfRxOrTx();
+
+    /* repeated start */
+    iI2C_SetRepeatedStartSate();
+
+    iI2C_SendData((dev) | 1);
+    iI2C_WaitEndOfRxOrTx();
+
+    iI2C_TxRxSelect(kRxMode);
+
+    /* dummy read */
+    volatile uint8_t dummy = iI2C_ReadData();
+
+    for(uint32_t i = 0; i < count; i++)
+    {
+        if(i == count - 1)
+        {
+            iI2C_SetAckMode(kNoAck);
+            iI2C_SetStopState();
+        }
+
+        iI2C_WaitEndOfRxOrTx();
+        pdata[i] = iI2C_ReadData();
+    }
+
+    return 0;
 }
 
 int8_t VL53L1_WrByte(uint16_t dev, uint16_t index, uint8_t data) {
@@ -52,10 +103,10 @@ int8_t VL53L1_WrByte(uint16_t dev, uint16_t index, uint8_t data) {
     while(iI2C_ReadStatus(kBUSY));
 
     iI2C_TxRxSelect(kTxMode);
-
+    I2C0->S = I2C_S_IICIF_MASK;//clear flag
     iI2C_SetStartState();
 
-    iI2C_SendData((dev<<1) | 0);
+    iI2C_SendData((dev) | 0);
     iI2C_WaitEndOfRxOrTx();
 
     iI2C_SendData(index >> 8);
@@ -103,13 +154,15 @@ int8_t VL53L1_RdByte(uint16_t dev, uint16_t index, uint8_t *data) {
 	
 	/* To be filled by customer. Return 0 if OK */
 	/* Warning : For big endian platforms, fields 'RegisterAdress' and 'value' need to be swapped. */
-	
-    while(iI2C_ReadStatus(kBUSY));
+    while (I2C0->S & I2C_S_BUSY_MASK);
 
+    I2C0->S = I2C_S_IICIF_MASK;
+
+    /* TX mode */
     iI2C_TxRxSelect(kTxMode);
     iI2C_SetStartState();
 
-    iI2C_SendData((dev) | 0);
+    iI2C_SendData(dev | 0);
     iI2C_WaitEndOfRxOrTx();
 
     iI2C_SendData(index >> 8);
@@ -118,23 +171,34 @@ int8_t VL53L1_RdByte(uint16_t dev, uint16_t index, uint8_t *data) {
     iI2C_SendData(index & 0xFF);
     iI2C_WaitEndOfRxOrTx();
 
+    /* repeated start */
     iI2C_SetRepeatedStartSate();
 
-    iI2C_SendData((dev) | 1);
+    iI2C_SendData(dev | 1);
     iI2C_WaitEndOfRxOrTx();
 
+    /* RX mode */
     iI2C_TxRxSelect(kRxMode);
 
-    /* last byte → NACK */
+    /* 🔥 dummy read（開始接收） */
+    (void)I2C0->D;
+
+    /* 🔥 立刻設定 NACK（因為只收 1 byte） */
     iI2C_SetAckMode(kNoAck);
 
-    *data = iI2C_ReadData();
-    iI2C_WaitEndOfRxOrTx();
+    /* 🔥 等資料 ready */
+    while (!(I2C0->S & I2C_S_IICIF_MASK));
 
+    /* 🔥 STOP 要在讀之前 */
     iI2C_SetStopState();
 
-    return 0;
+    /* 🔥 清 flag */
+    I2C0->S |= I2C_S_IICIF_MASK;
 
+    /* 🔥 讀真正資料（這一步才完成 transaction） */
+    *data = I2C0->D;
+
+    return 0;
 }
 
 int8_t VL53L1_RdWord(uint16_t dev, uint16_t index, uint16_t *data) {

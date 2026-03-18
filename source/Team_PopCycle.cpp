@@ -90,6 +90,7 @@ extern "C"
 #include <Popcycle/fillErrorBuffer.h>
 #include <Popcycle/calculateSteer.h>
 
+#include <Popcycle/speedParam.h>
 #include <Popcycle/TOF.h>
 
 /* Pixy 2 */
@@ -183,6 +184,7 @@ void logSpeed(sd_card_t *card, float speed);
 #endif
 
 static float multiplierTOF = 1.0f;
+static float multiplierPot2 = 1.0f;
 
 /*
  * @brief   Application entry point.
@@ -463,10 +465,13 @@ int main(void)
 
 
 						//Motor_SetSpeed(Pot2);
-						float speed = Motor_SetSpeedCurve(currentSteer);
+						float speed, speedFinal;
+						speed = Motor_SetSpeedCurve(currentSteer);
 						multiplierTOF = TOF_update();
-						speed = multiplierTOF * speed;
-						Motor_SetSpeed(speed);
+						multiplierPot2 = (Pot2 + 1.0f) * 0.5f;;
+						//speed = multiplierTOF * speed;
+						speedFinal = speed * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
+						Motor_SetSpeed(speedFinal);
 //						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 //						if(aSpeedMotRight == 0){
 //							mLeds_Write(kMaskLed4,kLedOn);
