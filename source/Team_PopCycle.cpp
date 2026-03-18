@@ -185,7 +185,7 @@ void logSpeed(sd_card_t *card, float speed);
 
 static float multiplierTOF = 1.0f;
 static float multiplierPot2 = 1.0f;
-
+static float multiplierCombined = 1.0f;
 /*
  * @brief   Application entry point.
  */
@@ -465,13 +465,15 @@ int main(void)
 
 
 						//Motor_SetSpeed(Pot2);
-						float speed, speedFinal;
-						speed = Motor_SetSpeedCurve(currentSteer);
+						float speedCurve, speedFinal, speedTOF, speedPot2;
+						speedCurve = Motor_SetSpeedCurve(currentSteer);
 						multiplierTOF = TOF_update();
-						multiplierPot2 = (Pot2 + 1.0f) * 0.5f;;
-						//speed = multiplierTOF * speed;
-						speedFinal = speed * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
-						Motor_SetSpeed(speedFinal);
+						multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
+						multiplierCombined = multiplierTOF * multiplierPot2;
+						speedTOF = speedCurve * multiplierTOF + speedMin * (1.0f - multiplierTOF);
+						speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
+						speedFinal = speedCurve * multiplierCombined + speedMin * (1.0f - multiplierCombined);
+						Motor_SetSpeed(speedTOF);
 //						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 //						if(aSpeedMotRight == 0){
 //							mLeds_Write(kMaskLed4,kLedOn);

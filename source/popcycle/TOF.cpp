@@ -43,30 +43,51 @@ void TOF_init(void){
 
 float TOF_update(void)
 {
-	uint8_t ready = 0;
+    uint8_t ready = 0;
     uint16_t distance = 0;
 
-    //Polling
-    VL53L1X_CheckForDataReady(TOF_ADDR, &ready);
-    if(!ready)
-    	return (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
-
-    // read distance
-    VL53L1X_GetDistance(TOF_ADDR, &distance);
-    // clear interrupt
-    VL53L1X_ClearInterrupt(TOF_ADDR);
-    // simple EMA filter to avoid jitter
-    float alpha = 0.3f;
     static float distanceFiltered = 0.0f;
-    if (distanceFiltered == 0.0f)
-        distanceFiltered = distance;
+    static float multiplierFiltered = 1.0f;
+
+    float alpha_d = 0.3f;
+    float alpha_m = 0.1f;
+
+    VL53L1X_CheckForDataReady(TOF_ADDR, &ready);
+
+    if (ready)
+    {
+        VL53L1X_GetDistance(TOF_ADDR, &distance);
+        VL53L1X_ClearInterrupt(TOF_ADDR);
+
+        // Distance EMA
+        if (distanceFiltered == 0.0f)
+            distanceFiltered = distance;
+        else
+            distanceFiltered = alpha_d * distance + (1.0f - alpha_d) * distanceFiltered;
+    }
+
+    // Always compute multiplier
+    float multiplierRaw;
+
+    if (distanceFiltered > distanceSlow)
+    {
+        multiplierRaw = 1.0f;
+    }
+    else if (distanceFiltered < distanceStop)
+    {
+        multiplierRaw = 0.0f;
+    }
     else
-        distanceFiltered = alpha * distance + (1.0f - alpha) * distanceFiltered;
+    {
+        multiplierRaw = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
+    }
 
-    // brake multiplier
-    float multiplierTOF = (distanceFiltered - distanceStop) / (distanceSlow - distanceStop);
-    multiplierTOF = std::clamp(multiplierTOF, 0.0f, 1.0f);
+    // EMA on multiplier
+    multiplierFiltered = alpha_m * multiplierRaw + (1.0f - alpha_m) * multiplierFiltered;
 
-    return multiplierTOF;
+    // Clamp
+    multiplierFiltered = std::clamp(multiplierFiltered, 0.0f, 1.0f);
+
+    return multiplierFiltered;
 }
 

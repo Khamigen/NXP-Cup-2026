@@ -180,22 +180,22 @@ int8_t VL53L1_RdByte(uint16_t dev, uint16_t index, uint8_t *data) {
     /* RX mode */
     iI2C_TxRxSelect(kRxMode);
 
-    /* 🔥 dummy read（開始接收） */
+    /* dummy read */
     (void)I2C0->D;
 
-    /* 🔥 立刻設定 NACK（因為只收 1 byte） */
+    /* NACK */
     iI2C_SetAckMode(kNoAck);
 
-    /* 🔥 等資料 ready */
+    /* wait for data ready */
     while (!(I2C0->S & I2C_S_IICIF_MASK));
 
-    /* 🔥 STOP 要在讀之前 */
+    /* stop */
     iI2C_SetStopState();
 
-    /* 🔥 清 flag */
+    /* clear flag */
     I2C0->S |= I2C_S_IICIF_MASK;
 
-    /* 🔥 讀真正資料（這一步才完成 transaction） */
+    /* read data） */
     *data = I2C0->D;
 
     return 0;
