@@ -7,7 +7,7 @@
 #include <Popcycle/speedParam.h>
 const float speedMax = 0.0f;
 const float speedMin = -0.6f;
-const float speedCruise = -0.32f;
+const float speedCruise = -0.2f;
 const float speedTurn = -0.4f;
 
 //placeholders before rpm is measured from hallsensor

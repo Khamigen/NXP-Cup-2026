@@ -112,10 +112,14 @@ extern "C"
 
 #define TIMEDDRIVE	 	 2
 #define PROGTESTRADLENK	 3
-#define PROGTESTBESCHL	 4
-#define PROGTESTBREMS	 5
+#define PROGTESTBREMS	 4
+#define PROGTESTBESCHL	 5
 #define PROGFOLLOWOBJECT 6
 #define PROGFOLLOWLINE   7
+
+#define DUR_TIMEDDRIVE 10000
+#define TIME_UNTIL_BREAK 1000
+
 //hier die Zustaende
 #define ZINIT			 1
 #define ZSTART			 2
@@ -583,7 +587,7 @@ int main(void)
 							else if(Zustand==ZRUN) {
 								timeakt=(clock_t)(testi*K_MAIN_INTERVAL);	//get time
 								if(			((Startbutton==true)&&(Startbutton_old==false))
-										  ||(timeakt>20000)) {	//goes to stop after 10000 timeunit (sec, ms??)
+										  ||(timeakt>DUR_TIMEDDRIVE)) {	//goes to stop after 10000 timeunit (sec, ms??)
 									printf("STOP!\n");
 									Zustand_old=Zustand;
 									Zustand=ZSTOP;
@@ -802,6 +806,123 @@ int main(void)
 								Button2_old=Button2;
 
 			}
+			if(Programm==PROGTESTBREMS) {
+										if(Zustand==ZINIT) {
+											//kritische Groessen signalisieren
+
+											//Dinge die man nur einmal machen moechte
+											if(doneinitflag==false) {
+												currentSteer = -0.1;
+												mTimer_SetServoDuty(SERVO_LENK,currentSteer);
+												usleep(3049000);   // 0.5 Sekunden warten
+
+												currentSteer = 0.1;
+												mTimer_SetServoDuty(SERVO_LENK,currentSteer);
+												usleep(3049000);   // 0.5 Sekunden warten
+												currentSteer = 0.0;
+												mTimer_SetServoDuty(SERVO_LENK,currentSteer);
+
+												doneinitflag=true;
+											}
+
+											//START bei Startbutton=true
+											if((Startbutton==true)&&(Startbutton_old==false)) {
+												mLeds_Write(kMaskLed2,kLedOff);
+												mLeds_Write(kMaskLed4,kLedOn);
+												mLeds_Write(kMaskLed3,kLedOff);
+
+												printf("START!\n");
+
+												Zustand_old=Zustand;
+												Zustand=ZSTART;
+
+												doneinitflag=false;
+												startflag=0;
+											}
+										}
+										else if(Zustand==ZSTART) {
+											//hier Startdinge erledigen
+
+											//RUN bei Startbutton=true
+											if((Startbutton==true)&&(Startbutton_old==false)) {
+												if(startflag<2) {
+													startflag++;
+												}
+												else {
+													mLeds_Write(kMaskLed1,kLedOff);
+													mLeds_Write(kMaskLed2,kLedOff);
+													mLeds_Write(kMaskLed3,kLedOff);
+													mLeds_Write(kMaskLed4,kLedOff);
+
+
+													usleep(30490000);   // 5 Sekunden warten
+
+													testi=1;
+													mLeds_Write(kMaskLed1,kLedOn);
+
+													startflag=0;
+													Zustand_old=Zustand;
+													Zustand=ZRUN;
+												}
+											}
+										}
+										else if(Zustand==ZRUN) {
+											timeakt=(clock_t)(testi*K_MAIN_INTERVAL);	//get time
+											if(			((Startbutton==true)&&(Startbutton_old==false))
+													  ||(timeakt>TIME_UNTIL_BREAK)) {	//goes to stop after 10000 timeunit (sec, ms??)
+												printf("STOP!\n");
+												Zustand_old=Zustand;
+												Zustand=ZSTOP;
+											}
+											else {
+
+
+												mTimer_SetServoDuty(SERVO_LENK,0);
+																		//Pot2 is beeing read after Program is being read
+
+
+												Motor_SetSpeed(speedCruise);
+
+											}
+
+											testi++;
+										}
+										else if(Zustand==ZSTOP) {
+
+
+											Motor_SetSpeed(-1);	//stopping motor
+											Zustand_old=Zustand;
+											Zustand=ZHALT;
+										}
+										else if(Zustand==ZHALT) {
+											//Parameter per LED anzeigen
+											if((Button2==true)&&(Button2_old==false)) {
+												zeigewert=(++zeigewert)%2;
+											}
+
+											if(zeigewert==0) {
+											}
+											else if(zeigewert==1) {
+												//vierfacher nmax Wert
+												mLeds_Write(kMaskLed2,kLedOff);
+												mLeds_Write(kMaskLed3,kLedOff);
+												mLeds_Write(kMaskLed4,kLedOn);
+											}
+
+											usleep(18000000);
+
+											//Reset bei Startbutton=true
+											if((Startbutton==true)&&(Startbutton_old==false)) {
+												printf("RESET!\n");
+												Zustand_old=Zustand;
+												Zustand=ZINIT;
+											}
+
+										}
+
+										Startbutton_old=Startbutton;
+										Button2_old=Button2;
+									}
 		}
 	}
 
