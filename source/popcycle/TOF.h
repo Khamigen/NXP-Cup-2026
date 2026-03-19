@@ -10,6 +10,7 @@
 
 void TOF_init(void);
 float TOF_update(void);
+bool TOF_thresh(void);
 
 
 #endif /* POPCYCLE_TOF_H_ */

@@ -91,3 +91,36 @@ float TOF_update(void)
     return multiplierFiltered;
 }
 
+bool TOF_thresh(void){
+		uint8_t ready = 0;
+	    uint16_t distance = 0;
+
+	    static float distanceFiltered = 0.0f;
+
+	    float alpha_d = 0.3f;
+
+	    VL53L1X_CheckForDataReady(TOF_ADDR, &ready);
+
+	    if (ready)
+	    {
+	        VL53L1X_GetDistance(TOF_ADDR, &distance);
+	        VL53L1X_ClearInterrupt(TOF_ADDR);
+
+	        // Distance EMA
+	        if (distanceFiltered == 0.0f)
+	            distanceFiltered = distance;
+	        else
+	            distanceFiltered = alpha_d * distance + (1.0f - alpha_d) * distanceFiltered;
+	    }
+
+
+	    if (distanceFiltered < distanceSlow)
+	    {
+	        return true;
+	    }
+	    else {
+	    	return false;
+	    }
+
+}
+
