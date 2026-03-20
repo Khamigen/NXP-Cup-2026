@@ -11,7 +11,7 @@ extern "C"{
 }
 #define TOF_ADDR 0x52
 
-const float distanceStop = 200.0f; //200mm
+const float distanceStop = 250.0f; //200mm
 const float distanceSlow = 800.0f; //800mm
 static float distanceFiltered = 0.0f;
 
@@ -112,9 +112,11 @@ bool TOF_thresh(void){
 	        else
 	            distanceFiltered = alpha_d * distance + (1.0f - alpha_d) * distanceFiltered;
 	    }
+	    else{
+	    	distanceFiltered = distanceStop +1;
+	    }
 
-
-	    if (distanceFiltered < distanceSlow)
+	    if (distanceFiltered < distanceStop)
 	    {
 	        return true;
 	    }

@@ -28,6 +28,9 @@ void getLineVectorsFeature(Pixy2SPI_SS &pixy, LineVectors &lv, bool *finishDetec
 		float dy_i = vi.m_y1 - vi.m_y0;
 		float len_i = sqrtf(dx_i*dx_i + dy_i*dy_i);
 		float xi = (vi.m_x0 + vi.m_x1) * 0.5f;
+		int finishScore = 0;
+		const float X_MIN = pixy.frameWidth * 0.25f;
+		const float X_MAX = pixy.frameWidth * 0.75f;
 
 		// 基本條件：水平 + 短 + 在畫面下半部
 		if (fabsf(dy_i) > 5 || len_i > 30 || vi.m_y0 < 40)
@@ -35,29 +38,45 @@ void getLineVectorsFeature(Pixy2SPI_SS &pixy, LineVectors &lv, bool *finishDetec
 
 		for (int j = i + 1; j < pixy.line.numVectors; j++)
 		{
-			Vector vj = pixy.line.vectors[j];
+			Vector vi = pixy.line.vectors[i];
 
-			float dx_j = vj.m_x1 - vj.m_x0;
-			float dy_j = vj.m_y1 - vj.m_y0;
-			float len_j = sqrtf(dx_j*dx_j + dy_j*dy_j);
-			float xj = (vj.m_x0 + vj.m_x1) * 0.5f;
-
-			if (fabsf(dy_j) > 5 || len_j > 30 || vj.m_y0 < 40)
+			if (xi < X_MIN || xi > X_MAX)
+				continue;
+			// 放寬條件（讓它更容易被看到）
+			if (fabsf(dy_i) > 8 || len_i > 40 || vi.m_y0 < 30)
 				continue;
 
-			// 🔥 強化條件（避免誤判）
-			if (fabsf(vi.m_y0 - vj.m_y0) < 10 &&     // 同一水平
-				fabsf(len_i - len_j) < 10 &&         // 長度接近
-				fabsf(xi - xj) > 20)                // 有間距（關鍵）
+			for (int j = i + 1; j < pixy.line.numVectors; j++)
 			{
-				if (finishDetected != NULL)
-					*finishDetected = true;
-				break;
+				Vector vj = pixy.line.vectors[j];
+
+				float dx_j = vj.m_x1 - vj.m_x0;
+				float dy_j = vj.m_y1 - vj.m_y0;
+				float len_j = sqrtf(dx_j*dx_j + dy_j*dy_j);
+				float xj = (vj.m_x0 + vj.m_x1) * 0.5f;
+
+				if (fabsf(dy_j) > 8 || len_j > 40 || vj.m_y0 < 30)
+					continue;
+
+				// ✔ 基本條件（給分）
+				if (fabsf(vi.m_y0 - vj.m_y0) < 12)
+					finishScore += 2;
+
+				if (fabsf(len_i - len_j) < 15)
+					finishScore += 2;
+
+				if (fabsf(xi - xj) > 20)
+					finishScore += 3;
+
+				// ✔ 額外：越靠近車越可信
+				if (vi.m_y0 > 45 && vj.m_y0 > 45)
+					finishScore += 2;
+			}
+			if (finishDetected != NULL)
+			{
+				*finishDetected = (finishScore >= 4);  // ⭐ 核心 threshold
 			}
 		}
-
-		if (finishDetected != NULL && *finishDetected)
-			break;
 	}
 
 	if (pixy.line.numVectors >= 2){

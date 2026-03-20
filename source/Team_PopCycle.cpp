@@ -74,6 +74,7 @@ extern "C"
 #include "Applications/gOutput.h"
 
 }
+#include <algorithm>
 // popcycle header
 #include <Popcycle/Pixy2_LaneTracking.h>
 #include <Popcycle/Motor_Control.h>
@@ -210,6 +211,7 @@ int main(void)
 	int errorCode = 0;
 
 	//Werte die gesetzt werden
+
 	float steer;
 	float currentSteer;
 	float currentError;
@@ -221,8 +223,10 @@ int main(void)
 
 	bool finishDetectedRaw = false;
 	int finishCounter = 0;
+	int straightCounter = 0;
 	bool finishConfirmed = false;
 	bool slowMode = false;
+	bool finishDetectedFiltered = false;
 
 	float aDuty;
 	float aUMotLeft,aUMotRight;
@@ -425,6 +429,11 @@ int main(void)
 
 						doneinitflag=false;
 						startflag=0;
+						finishDetectedRaw = false;
+						finishCounter = 0;
+						straightCounter = 0;
+						finishConfirmed = false;
+						slowMode = false;
 
 					}
 				}
@@ -450,10 +459,6 @@ int main(void)
 
 							startflag=0;
 
-							finishDetectedRaw = false;
-							finishCounter = 0;
-							finishConfirmed = false;
-							slowMode = false;
 							Zustand_old=Zustand;
 							Zustand=ZRUN;
 						}
@@ -471,14 +476,29 @@ int main(void)
 						//Motor_SetSpeed(Pot2);
 
 						getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
-						if (finishDetectedRaw)
-							finishCounter++;
+						// 1. 判斷是否直線
+						if (fabs(currentSteer) < 0.2f)
+							straightCounter++;
 						else
-							finishCounter = 0;
+							straightCounter = 0;
 
+						bool allowFinishDetection = (straightCounter > 3);
+
+						// 2. detection gating
+						bool finishDetectedFiltered = false;
+						if (allowFinishDetection)
+							finishDetectedFiltered = finishDetectedRaw;
+
+						// 3. 積分
+						if (finishDetectedFiltered)
+							finishCounter += 2;
+						else
+							finishCounter -= 1;
+
+						finishCounter = std::clamp(finishCounter, 0, 10);
+
+						// 4. trigger
 						if (finishCounter >= 3)
-							finishConfirmed = true;
-						if (finishConfirmed)
 							slowMode = true;
 						preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 						currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
@@ -497,7 +517,7 @@ int main(void)
 						//	Zustand = ZSTOP;
 						//} else if(slowMode) {
 						if(slowMode){
-							Motor_SetSpeed(-0.45);
+							Motor_SetSpeed(-1);
 						} else{
 						Motor_SetSpeed(speedPot2);
 //						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
@@ -972,6 +992,12 @@ int main(void)
 									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 
 									doneinitflag=true;
+									finishDetectedRaw = false;
+									finishCounter = 0;
+									straightCounter = 0;
+									finishConfirmed = false;
+									slowMode = false;
+									finishDetectedFiltered = false;
 								}
 
 								//START bei Startbutton=true
@@ -1027,6 +1053,30 @@ int main(void)
 									//Motor_SetSpeed(Pot2);
 
 									getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
+									// 1. 判斷是否直線
+									if (fabs(currentSteer) < 0.2f)
+										straightCounter++;
+									else
+										straightCounter = 0;
+
+									bool allowFinishDetection = (straightCounter > 2);
+
+									// 2. detection gating
+
+									if (allowFinishDetection)
+										finishDetectedFiltered = finishDetectedRaw;
+
+									// 3. 積分
+									if (finishDetectedFiltered)
+										finishCounter += 2;
+									else
+										finishCounter -= 1;
+
+									finishCounter = std::clamp(finishCounter, 0, 10);
+
+									// 4. trigger
+									if (finishCounter >= 2)
+										slowMode = true;
 									preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 									currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 									currentError = computeHorizontalError(currentCenterPoint.x);
@@ -1035,24 +1085,27 @@ int main(void)
 
 									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 															//Pot2 is beeing read after Program is being read
-
-
 									//Motor_SetSpeed(Pot2);
 									speedCurve = Motor_SetSpeedCurve(currentSteer);
 									multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
 									speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
-									if (TOF_thresh()){
-										Motor_SetSpeed(-1); //stops
-										Zustand = ZSTOP;
-									} else {
+
+									//} else if(slowMode) {
+									if(slowMode){
+										Motor_SetSpeed(-0.48);
+										if (TOF_thresh()){
+									Motor_SetSpeed(-1); //stops
+											Zustand = ZSTOP;
+										}
+									} else{
 									Motor_SetSpeed(speedPot2);
-									}
 			//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 			//						if(aSpeedMotRight == 0){
 			//							mLeds_Write(kMaskLed4,kLedOn);
 			//						} else {
 			//							mLeds_Write(kMaskLed4,kLedOff);
 			//						}
+									}
 								}
 
 								testi++;

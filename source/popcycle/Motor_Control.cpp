@@ -27,18 +27,9 @@ void Motor_Init(void)
 {
     mTimer_SetServoDuty(SERVO_MOTOR, speedMax);   // Max
     SDK_DelayAtLeastUs(15000000, SystemCoreClock); // 15,000,000 us = 15s?
-    mTimer_GetSpeed(&rpmL, &rpmMax);
+
     mTimer_SetServoDuty(SERVO_MOTOR, speedMin); // Min
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
-    mTimer_GetSpeed(&rpmL, &rpmMin);
-    mTimer_SetServoDuty(SERVO_MOTOR, speedCruise); // Min
-    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
-    mTimer_GetSpeed(&rpmL, &rpmCruise);
-    mTimer_SetServoDuty(SERVO_MOTOR, speedTurn); // Min
-    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
-    mTimer_GetSpeed(&rpmL, &rpmTurn);
-    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
-    mTimer_SetServoDuty(SERVO_MOTOR, speedMin);
 }
 
 void Motor_SetSpeed(float speed)
