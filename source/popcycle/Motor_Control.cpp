@@ -23,6 +23,9 @@ static const float kCurve = 0.8f;// relation between steer and speed, bigger kur
 //EMA smoothing
 static const float alpha = 0.2f;// used in EMA, bigger alpha->faster changes, smaller alpha->slower but smoother changes
 static float speedEMA = speedMax;// used as result of current EMA calculation and buffer from last EMA
+
+static float multiplierPot2;
+
 void Motor_Init(void)
 {
     mTimer_SetServoDuty(SERVO_MOTOR, speedMax);   // Max
@@ -38,7 +41,7 @@ void Motor_SetSpeed(float speed)
     mTimer_SetServoDuty(SERVO_MOTOR, speed);
 }
 
-float Motor_SetSpeedCurve(float steer)
+float Motor_SetSpeedCurve(float steer, float *Pot2)
 {
 	/*
 	//determine the target speed will steering, bigger steer -> slower target speed
@@ -55,7 +58,10 @@ float Motor_SetSpeedCurve(float steer)
 	float s = fabsf(steer) / 0.75f;  // 0..1
 	s = std::clamp(s, 0.0f, 1.0f);
 
-	float speedTarget = speedCruise + (speedTurn - speedCruise) * s;
+	multiplierPot2 = (*Pot2 + 1.0f) * 0.5f;
+	speedCruiseFinal = (multiplierPot2 * (speedCruise - speedTurn)) + speedTurn;	//scales
+
+	float speedTarget = speedCruiseFinal + (speedTurn - speedCruiseFinal) * s;
 
 	speedEMA = alpha * speedTarget + (1.0f - alpha) * speedEMA;
 	speedEMA = std::clamp(speedEMA, speedTurn, speedCruise);

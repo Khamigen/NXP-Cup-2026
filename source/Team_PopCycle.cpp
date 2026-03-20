@@ -418,8 +418,9 @@ int main(void)
 
 					//START bei Startbutton=true
 					if((Startbutton==true)&&(Startbutton_old==false)) {
+						mLeds_Write(kMaskLed1,kLedOff);
 						mLeds_Write(kMaskLed2,kLedOff);
-						mLeds_Write(kMaskLed3,kLedOn);
+						mLeds_Write(kMaskLed3,kLedOn);	//shows prog = 0
 						mLeds_Write(kMaskLed4,kLedOff);
 
 						printf("START!\n");
@@ -455,7 +456,7 @@ int main(void)
 							usleep(30490000);   // 5 Sekunden warten
 
 							testi=1;
-							mLeds_Write(kMaskLed1,kLedOn);
+							mLeds_Write(kMaskLed4,kLedOn);
 
 							startflag=0;
 
@@ -509,17 +510,11 @@ int main(void)
 						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 												//Pot2 is beeing read after Program is being read
 						//Motor_SetSpeed(Pot2);
-						speedCurve = Motor_SetSpeedCurve(currentSteer);
-						multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
-						speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
-						//if (TOF_thresh()){
-						//	Motor_SetSpeed(-1); //stops
-						//	Zustand = ZSTOP;
-						//} else if(slowMode) {
-						if(slowMode){
-							Motor_SetSpeed(-1);
-						} else{
-						Motor_SetSpeed(speedPot2);
+
+						float speedCurve, speedTOF;
+						speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
+
+						Motor_SetSpeed(speedCurve);
 //						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 //						if(aSpeedMotRight == 0){
 //							mLeds_Write(kMaskLed4,kLedOn);
@@ -539,21 +534,15 @@ int main(void)
 					Zustand=ZHALT;
 				}
 				else if(Zustand==ZHALT) {
-					//Parameter per LED anzeigen
-					if((Button2==true)&&(Button2_old==false)) {
-						zeigewert=(++zeigewert)%2;
-					}
 
-					if(zeigewert==0) {
-					}
-					else if(zeigewert==1) {
-						//vierfacher nmax Wert
-						mLeds_Write(kMaskLed2,kLedOff);
-						mLeds_Write(kMaskLed3,kLedOff);
-						mLeds_Write(kMaskLed4,kLedOn);
-					}
+					//Haltzustand -> alle LEDS leuchten
+				mLeds_Write(kMaskLed1, kLedOn);
+				mLeds_Write(kMaskLed2,kLedOn);
+				mLeds_Write(kMaskLed3,kLedOn);
+				mLeds_Write(kMaskLed4,kLedOn);
 
-					usleep(18000000);
+
+				usleep(9000000);
 
 					//Reset bei Startbutton=true
 					if((Startbutton==true)&&(Startbutton_old==false)) {
@@ -588,8 +577,9 @@ int main(void)
 
 								//START bei Startbutton=true
 								if((Startbutton==true)&&(Startbutton_old==false)) {
-									mLeds_Write(kMaskLed2,kLedOff);
-									mLeds_Write(kMaskLed3,kLedOn);
+									mLeds_Write(kMaskLed1,kLedOff);
+									mLeds_Write(kMaskLed2,kLedOn);
+									mLeds_Write(kMaskLed3,kLedOff);
 									mLeds_Write(kMaskLed4,kLedOff);
 
 									printf("START!\n");
@@ -619,7 +609,7 @@ int main(void)
 										usleep(30490000);   // 5 Sekunden warten
 
 										testi=1;
-										mLeds_Write(kMaskLed1,kLedOn);
+										mLeds_Write(kMaskLed4,kLedOn);
 
 										startflag=0;
 										Zustand_old=Zustand;
@@ -637,9 +627,8 @@ int main(void)
 								}
 								else {
 
-									Motor_SetSpeed(Pot2);
 
-									getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
+									getLineVectorsFeature(pixy, currentPixyLineVectors);
 									preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 									currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 									currentError = computeHorizontalError(currentCenterPoint.x);
@@ -650,7 +639,12 @@ int main(void)
 															//Pot2 is beeing read after Program is being read
 
 
-									Motor_SetSpeed(Pot2);
+									//Motor_SetSpeed(Pot2);
+									float speedCurve;
+									speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
+
+
+									Motor_SetSpeed(speedCurve);
 
 								}
 
@@ -664,21 +658,15 @@ int main(void)
 								Zustand=ZHALT;
 							}
 							else if(Zustand==ZHALT) {
-								//Parameter per LED anzeigen
-								if((Button2==true)&&(Button2_old==false)) {
-									zeigewert=(++zeigewert)%2;
-								}
 
-								if(zeigewert==0) {
-								}
-								else if(zeigewert==1) {
-									//vierfacher nmax Wert
-									mLeds_Write(kMaskLed2,kLedOff);
-									mLeds_Write(kMaskLed3,kLedOff);
-									mLeds_Write(kMaskLed4,kLedOn);
-								}
+								//Haltzustand -> alle LEDS leuchten
+							mLeds_Write(kMaskLed1, kLedOn);
+							mLeds_Write(kMaskLed2,kLedOn);
+							mLeds_Write(kMaskLed3,kLedOn);
+							mLeds_Write(kMaskLed4,kLedOn);
 
-								usleep(18000000);
+
+							usleep(9000000);
 
 								//Reset bei Startbutton=true
 								if((Startbutton==true)&&(Startbutton_old==false)) {
@@ -713,6 +701,7 @@ int main(void)
 
 									//START bei Startbutton=true
 									if((Startbutton==true)&&(Startbutton_old==false)) {
+										mLeds_Write(kMaskLed1,kLedOff);
 										mLeds_Write(kMaskLed2,kLedOff);
 										mLeds_Write(kMaskLed3,kLedOn);
 										mLeds_Write(kMaskLed4,kLedOff);
@@ -740,6 +729,7 @@ int main(void)
 											mLeds_Write(kMaskLed3,kLedOff);
 											mLeds_Write(kMaskLed4,kLedOff);
 
+
 											usleep(30490000);   // 5 Sekunden warten
 
 					#if (SD_ENABLED)
@@ -754,7 +744,7 @@ int main(void)
 											}
 					#endif
 											testi=1;
-											mLeds_Write(kMaskLed1,kLedOn);
+											mLeds_Write(kMaskLed4,kLedOn);
 
 											startflag=0;
 											Zustand_old=Zustand;
@@ -820,21 +810,15 @@ int main(void)
 									Zustand=ZHALT;
 								}
 								else if(Zustand==ZHALT) {
-									//Parameter per LED anzeigen
-									if((Button2==true)&&(Button2_old==false)) {
-										zeigewert=(++zeigewert)%2;
-									}
 
-									if(zeigewert==0) {
-									}
-									else if(zeigewert==1) {
-										//vierfacher nmax Wert
-										mLeds_Write(kMaskLed2,kLedOff);
-										mLeds_Write(kMaskLed3,kLedOff);
-										mLeds_Write(kMaskLed4,kLedOn);
-									}
+									//Haltzustand -> alle LEDS leuchten
+								mLeds_Write(kMaskLed1, kLedOn);
+								mLeds_Write(kMaskLed2,kLedOn);
+								mLeds_Write(kMaskLed3,kLedOn);
+								mLeds_Write(kMaskLed4,kLedOn);
 
-									usleep(18000000);
+
+								usleep(9000000);
 
 									//Reset bei Startbutton=true
 									if((Startbutton==true)&&(Startbutton_old==false)) {
@@ -870,9 +854,10 @@ int main(void)
 
 											//START bei Startbutton=true
 											if((Startbutton==true)&&(Startbutton_old==false)) {
+												mLeds_Write(kMaskLed1,kLedOn);
 												mLeds_Write(kMaskLed2,kLedOff);
-												mLeds_Write(kMaskLed4,kLedOn);
 												mLeds_Write(kMaskLed3,kLedOff);
+												mLeds_Write(kMaskLed4,kLedOff);
 
 												printf("START!\n");
 
@@ -901,7 +886,7 @@ int main(void)
 													usleep(30490000);   // 5 Sekunden warten
 
 													testi=1;
-													mLeds_Write(kMaskLed1,kLedOn);
+													mLeds_Write(kMaskLed4,kLedOn);
 
 													startflag=0;
 													Zustand_old=Zustand;
@@ -925,7 +910,7 @@ int main(void)
 
 
 												//Motor_SetSpeed(Pot2);
-												speedCurve = Motor_SetSpeedCurve(currentSteer);
+												speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
 												multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
 												speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
 												if (TOF_thresh()){
@@ -947,21 +932,15 @@ int main(void)
 											Zustand=ZHALT;
 										}
 										else if(Zustand==ZHALT) {
-											//Parameter per LED anzeigen
-											if((Button2==true)&&(Button2_old==false)) {
-												zeigewert=(++zeigewert)%2;
-											}
 
-											if(zeigewert==0) {
-											}
-											else if(zeigewert==1) {
-												//vierfacher nmax Wert
-												mLeds_Write(kMaskLed2,kLedOff);
-												mLeds_Write(kMaskLed3,kLedOff);
-												mLeds_Write(kMaskLed4,kLedOn);
-											}
+											//Haltzustand -> alle LEDS leuchten
+										mLeds_Write(kMaskLed1, kLedOn);
+										mLeds_Write(kMaskLed2,kLedOn);
+										mLeds_Write(kMaskLed3,kLedOn);
+										mLeds_Write(kMaskLed4,kLedOn);
 
-											usleep(18000000);
+
+										usleep(9000000);
 
 											//Reset bei Startbutton=true
 											if((Startbutton==true)&&(Startbutton_old==false)) {
@@ -1002,6 +981,7 @@ int main(void)
 
 								//START bei Startbutton=true
 								if((Startbutton==true)&&(Startbutton_old==false)) {
+									mLeds_Write(kMaskLed1,kLedOn);
 									mLeds_Write(kMaskLed2,kLedOff);
 									mLeds_Write(kMaskLed3,kLedOn);
 									mLeds_Write(kMaskLed4,kLedOff);
@@ -1033,7 +1013,7 @@ int main(void)
 										usleep(30490000);   // 5 Sekunden warten
 
 										testi=1;
-										mLeds_Write(kMaskLed1,kLedOn);
+										mLeds_Write(kMaskLed4,kLedOn);
 
 										startflag=0;
 										Zustand_old=Zustand;
@@ -1086,9 +1066,7 @@ int main(void)
 									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 															//Pot2 is beeing read after Program is being read
 									//Motor_SetSpeed(Pot2);
-									speedCurve = Motor_SetSpeedCurve(currentSteer);
-									multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
-									speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
+									speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
 
 									//} else if(slowMode) {
 									if(slowMode){
@@ -1098,7 +1076,8 @@ int main(void)
 											Zustand = ZSTOP;
 										}
 									} else{
-									Motor_SetSpeed(speedPot2);
+									Motor_SetSpeed(speedCurve);
+
 			//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 			//						if(aSpeedMotRight == 0){
 			//							mLeds_Write(kMaskLed4,kLedOn);
@@ -1118,21 +1097,15 @@ int main(void)
 								Zustand=ZHALT;
 							}
 							else if(Zustand==ZHALT) {
-								//Parameter per LED anzeigen
-								if((Button2==true)&&(Button2_old==false)) {
-									zeigewert=(++zeigewert)%2;
-								}
 
-								if(zeigewert==0) {
-								}
-								else if(zeigewert==1) {
-									//vierfacher nmax Wert
-									mLeds_Write(kMaskLed2,kLedOff);
-									mLeds_Write(kMaskLed3,kLedOff);
-									mLeds_Write(kMaskLed4,kLedOn);
-								}
+									//Haltzustand -> alle LEDS leuchten
+								mLeds_Write(kMaskLed1, kLedOn);
+								mLeds_Write(kMaskLed2,kLedOn);
+								mLeds_Write(kMaskLed3,kLedOn);
+								mLeds_Write(kMaskLed4,kLedOn);
 
-								usleep(18000000);
+
+								usleep(9000000);
 
 								//Reset bei Startbutton=true
 								if((Startbutton==true)&&(Startbutton_old==false)) {
