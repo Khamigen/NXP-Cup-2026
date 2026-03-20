@@ -30,9 +30,18 @@ void Motor_Init(void)
 {
     mTimer_SetServoDuty(SERVO_MOTOR, speedMax);   // Max
     SDK_DelayAtLeastUs(15000000, SystemCoreClock); // 15,000,000 us = 15s?
-
+    mTimer_GetSpeed(&rpmL, &rpmMax);
     mTimer_SetServoDuty(SERVO_MOTOR, speedMin); // Min
     SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_GetSpeed(&rpmL, &rpmMin);
+    mTimer_SetServoDuty(SERVO_MOTOR, speedCruise); // Min
+    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_GetSpeed(&rpmL, &rpmCruise);
+    mTimer_SetServoDuty(SERVO_MOTOR, speedTurn); // Min
+    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_GetSpeed(&rpmL, &rpmTurn);
+    SDK_DelayAtLeastUs(15000000, SystemCoreClock);
+    mTimer_SetServoDuty(SERVO_MOTOR, speedMin);
 }
 
 void Motor_SetSpeed(float speed)
@@ -59,7 +68,7 @@ float Motor_SetSpeedCurve(float steer, float *Pot2)
 	s = std::clamp(s, 0.0f, 1.0f);
 
 	multiplierPot2 = (*Pot2 + 1.0f) * 0.5f;
-	speedCruiseFinal = (multiplierPot2 * (speedCruise - speedTurn)) + speedTurn;	//scales
+	speedCruiseFinal = speedCruise * multiplierPot2;	//pot2 as speedCruise gain
 
 	float speedTarget = speedCruiseFinal + (speedTurn - speedCruiseFinal) * s;
 
