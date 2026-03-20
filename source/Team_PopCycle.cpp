@@ -477,30 +477,7 @@ int main(void)
 						//Motor_SetSpeed(Pot2);
 
 						getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
-						// 1. 判斷是否直線
-						if (fabs(currentSteer) < 0.2f)
-							straightCounter++;
-						else
-							straightCounter = 0;
 
-						bool allowFinishDetection = (straightCounter > 3);
-
-						// 2. detection gating
-						bool finishDetectedFiltered = false;
-						if (allowFinishDetection)
-							finishDetectedFiltered = finishDetectedRaw;
-
-						// 3. 積分
-						if (finishDetectedFiltered)
-							finishCounter += 2;
-						else
-							finishCounter -= 1;
-
-						finishCounter = std::clamp(finishCounter, 0, 10);
-
-						// 4. trigger
-						if (finishCounter >= 3)
-							slowMode = true;
 						preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 						currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 						currentError = computeHorizontalError(currentCenterPoint.x);
@@ -508,28 +485,15 @@ int main(void)
 						currentSteer = calculateSteer(errorBuffer, &Pot1);
 
 						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
-												//Pot2 is beeing read after Program is being read
-						//Motor_SetSpeed(Pot2);
 
 						float speedCurve, speedTOF;
 						speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
-						multiplierTOF = TOF_update();
-						speedTOF = speedCurve * multiplierTOF + speedMin * (1.0f - multiplierTOF);
 
-						Motor_SetSpeed(speedTOF);
-//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-//						if(aSpeedMotRight == 0){
-//							mLeds_Write(kMaskLed4,kLedOn);
-//						} else {
-//							mLeds_Write(kMaskLed4,kLedOff);
-//						}
-
+						Motor_SetSpeed(speedCurve);
 					}
-
 					testi++;
 				}
 				else if(Zustand==ZSTOP) {
-
 
 					Motor_SetSpeed(-1);	//stopping motor
 					Zustand_old=Zustand;
