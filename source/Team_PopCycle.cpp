@@ -1036,14 +1036,15 @@ int main(void)
 
 									float speedCurve, speedTOF;
 									speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
-									multiplierTOF = TOF_update();
-									speedTOF = speedCurve * multiplierTOF + speedMin * (1.0f - multiplierTOF);
 
-									if (TOF_thresh()){
-										Motor_SetSpeed(-1);
-										Zustand = ZSTOP;
-									} else {
-									Motor_SetSpeed(speedTOF);
+									if(slowMode){
+										Motor_SetSpeed(-0.48);
+										if (TOF_thresh()){
+											Motor_SetSpeed(-1); //stops
+											Zustand = ZSTOP;
+										}
+									} else{
+									Motor_SetSpeed(speedCurve);
 									}
 								}
 
