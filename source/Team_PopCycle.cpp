@@ -515,15 +515,8 @@ int main(void)
 						speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
 
 						Motor_SetSpeed(speedCurve);
-//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-//						if(aSpeedMotRight == 0){
-//							mLeds_Write(kMaskLed4,kLedOn);
-//						} else {
-//							mLeds_Write(kMaskLed4,kLedOff);
-//						}
-						}
-					}
 
+					}
 					testi++;
 				}
 				else if(Zustand==ZSTOP) {
@@ -628,7 +621,7 @@ int main(void)
 								else {
 
 
-									getLineVectorsFeature(pixy, currentPixyLineVectors);
+									getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
 									preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 									currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 									currentError = computeHorizontalError(currentCenterPoint.x);
@@ -1072,18 +1065,11 @@ int main(void)
 									if(slowMode){
 										Motor_SetSpeed(-0.48);
 										if (TOF_thresh()){
-									Motor_SetSpeed(-1); //stops
+											Motor_SetSpeed(-1); //stops
 											Zustand = ZSTOP;
 										}
 									} else{
 									Motor_SetSpeed(speedCurve);
-
-			//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-			//						if(aSpeedMotRight == 0){
-			//							mLeds_Write(kMaskLed4,kLedOn);
-			//						} else {
-			//							mLeds_Write(kMaskLed4,kLedOff);
-			//						}
 									}
 								}
 
