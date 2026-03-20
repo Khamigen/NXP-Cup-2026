@@ -473,14 +473,11 @@ int main(void)
 
 
 						//Motor_SetSpeed(Pot2);
-						float speedCurve, speedFinal, speedTOF, speedPot2;
-						speedCurve = Motor_SetSpeedCurve(currentSteer);
+						float speedCurve, speedTOF;
+						speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
 						multiplierTOF = TOF_update();
-						multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
-						multiplierCombined = multiplierTOF * multiplierPot2;
 						speedTOF = speedCurve * multiplierTOF + speedMin * (1.0f - multiplierTOF);
-						speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
-						speedFinal = speedCurve * multiplierCombined + speedMin * (1.0f - multiplierCombined);
+
 						Motor_SetSpeed(speedTOF);
 //						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 //						if(aSpeedMotRight == 0){
@@ -593,8 +590,6 @@ int main(void)
 								}
 								else {
 
-									Motor_SetSpeed(Pot2);
-
 									getLineVectorsFeature(pixy, currentPixyLineVectors);
 									preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 									currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
@@ -606,7 +601,13 @@ int main(void)
 															//Pot2 is beeing read after Program is being read
 
 
-									Motor_SetSpeed(Pot2);
+									//Motor_SetSpeed(Pot2);
+									float speedCurve, speedTOF;
+									speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
+									multiplierTOF = TOF_update();
+									speedTOF = speedCurve * multiplierTOF + speedMin * (1.0f - multiplierTOF);
+
+									Motor_SetSpeed(speedTOF);
 
 								}
 
@@ -872,7 +873,7 @@ int main(void)
 
 
 												//Motor_SetSpeed(Pot2);
-												speedCurve = Motor_SetSpeedCurve(currentSteer);
+												speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
 												multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
 												speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
 												if (TOF_thresh()){
@@ -997,18 +998,19 @@ int main(void)
 
 									mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 															//Pot2 is beeing read after Program is being read
-
-
 									//Motor_SetSpeed(Pot2);
-									speedCurve = Motor_SetSpeedCurve(currentSteer);
-									multiplierPot2 = (Pot2 + 1.0f) * 0.5f;
-									speedPot2 = speedCurve * multiplierPot2 + speedMin * (1.0f - multiplierPot2);
+									float speedCurve, speedTOF;
+									speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
+									multiplierTOF = TOF_update();
+									speedTOF = speedCurve * multiplierTOF + speedMin * (1.0f - multiplierTOF);
+
 									if (TOF_thresh()){
-										Motor_SetSpeed(-1); //stops
+										Motor_SetSpeed(-1);
 										Zustand = ZSTOP;
 									} else {
-									Motor_SetSpeed(speedPot2);
+									Motor_SetSpeed(speedTOF);
 									}
+
 			//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
 			//						if(aSpeedMotRight == 0){
 			//							mLeds_Write(kMaskLed4,kLedOn);

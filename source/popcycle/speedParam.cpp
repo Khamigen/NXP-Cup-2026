@@ -7,6 +7,7 @@
 #include <Popcycle/speedParam.h>
 const float speedMax = 0.0f;
 const float speedMin = -0.6f;
+ float speedCruiseFinal = -0.2f;
 const float speedCruise = -0.2f;
 const float speedTurn = -0.4f;
 

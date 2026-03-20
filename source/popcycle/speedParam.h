@@ -11,6 +11,7 @@
 extern const float speedMax;
 extern const float speedMin;
 extern const float speedCruise;
+extern  float speedCruiseFinal;
 extern const float speedTurn;
 
 //placeholders before rpm is measured from hallsensor

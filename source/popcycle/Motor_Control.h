@@ -11,6 +11,6 @@
 
 void Motor_Init(void);  // init ESC，set max/min speed
 void Motor_SetSpeed(float speed); // set speed (-1.0 ~ 1.0)
-float Motor_SetSpeedCurve(float steer);
+float Motor_SetSpeedCurve(float steer, float *Pot2);
 
 #endif /* POPCYCLE_MOTOR_CONTROL_H_ */
