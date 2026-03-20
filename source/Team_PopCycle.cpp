@@ -523,7 +523,7 @@ int main(void)
 //						} else {
 //							mLeds_Write(kMaskLed4,kLedOff);
 //						}
-						}
+
 					}
 
 					testi++;
@@ -630,7 +630,7 @@ int main(void)
 								else {
 
 
-									getLineVectorsFeature(pixy, currentPixyLineVectors);
+									getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
 									preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 									currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 									currentError = computeHorizontalError(currentCenterPoint.x);
@@ -1080,14 +1080,6 @@ int main(void)
 										Zustand = ZSTOP;
 									} else {
 									Motor_SetSpeed(speedTOF);
-									}
-
-			//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-			//						if(aSpeedMotRight == 0){
-			//							mLeds_Write(kMaskLed4,kLedOn);
-			//						} else {
-			//							mLeds_Write(kMaskLed4,kLedOff);
-			//						}
 									}
 								}
 
