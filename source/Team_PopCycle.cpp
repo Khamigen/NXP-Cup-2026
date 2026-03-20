@@ -466,7 +466,7 @@ int main(void)
 						currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 						currentError = computeHorizontalError(currentCenterPoint.x);
 						fillErrorBuffer(currentError, errorBuffer);
-						currentSteer = calculateSteer(errorBuffer);
+						currentSteer = calculateSteer(errorBuffer, &Pot1);
 
 						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 												//Pot2 is beeing read after Program is being read
@@ -1006,13 +1006,6 @@ int main(void)
 									} else {
 									Motor_SetSpeed(speedCurve);
 									}
-
-			//						mTimer_GetSpeed(&aSpeedMotLeft, &aSpeedMotRight);
-			//						if(aSpeedMotRight == 0){
-			//							mLeds_Write(kMaskLed4,kLedOn);
-			//						} else {
-			//							mLeds_Write(kMaskLed4,kLedOff);
-			//						}
 								}
 
 								testi++;

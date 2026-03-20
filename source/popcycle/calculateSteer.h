@@ -13,6 +13,7 @@
 
 
 float calculateSteer(eBuffer &eb);
+float calculateSteer(eBuffer &eb, float *kPot1);
 
 
 #endif /* POPCYCLE_CALCULATESTEER_H_ */
