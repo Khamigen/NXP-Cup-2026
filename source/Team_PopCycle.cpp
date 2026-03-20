@@ -474,7 +474,6 @@ int main(void)
 					}
 					else {
 
-						//Motor_SetSpeed(Pot2);
 
 						getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
 
@@ -486,7 +485,7 @@ int main(void)
 
 						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 
-						float speedCurve, speedTOF;
+						float speedCurve;
 						speedCurve = Motor_SetSpeedCurve(currentSteer, &Pot2);
 
 						Motor_SetSpeed(speedCurve);
