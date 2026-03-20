@@ -505,7 +505,7 @@ int main(void)
 						currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
 						currentError = computeHorizontalError(currentCenterPoint.x);
 						fillErrorBuffer(currentError, errorBuffer);
-						currentSteer = calculateSteer(errorBuffer);
+						currentSteer = calculateSteer(errorBuffer, &Pot1);
 
 						mTimer_SetServoDuty(SERVO_LENK,currentSteer);
 												//Pot2 is beeing read after Program is being read
