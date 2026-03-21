@@ -227,6 +227,8 @@ int main(void)
 	bool finishConfirmed = false;
 	bool slowMode = false;
 	bool finishDetectedFiltered = false;
+	static int startCounter = 0;
+	bool finishDetectionEnabled = false;
 
 	float aDuty;
 	float aUMotLeft,aUMotRight;
@@ -475,7 +477,7 @@ int main(void)
 					else {
 
 
-						getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
+						getLineVectorsFeature(pixy, currentPixyLineVectors);
 
 						preprocessingLineVectors(currentPixyLineVectors, FORCE_SINGLE_VECTOR_LOGIC);
 						currentCenterPoint = computeCenterPoint(currentPixyLineVectors);	//HIER IST DAS PROBLEM
@@ -943,6 +945,8 @@ int main(void)
 									finishConfirmed = false;
 									slowMode = false;
 									finishDetectedFiltered = false;
+									finishDetectionEnabled = false;
+									startCounter = 0;
 								}
 
 								//START bei Startbutton=true
@@ -997,7 +1001,12 @@ int main(void)
 								else {
 
 									//Motor_SetSpeed(Pot2);
+									startCounter++;
 
+									if (startCounter > 100)   // Stop the car from entring slowmode while start
+									{
+										finishDetectionEnabled = true;
+									}
 									getLineVectorsFeature(pixy, currentPixyLineVectors, &finishDetectedRaw);
 									// 1. 判斷是否直線
 									if (fabs(currentSteer) < 0.2f)
@@ -1009,11 +1018,24 @@ int main(void)
 
 									// 2. detection gating
 
-									if (allowFinishDetection)
+									if (allowFinishDetection&&finishDetectionEnabled)
 										finishDetectedFiltered = finishDetectedRaw;
+									// 3. latch
+									static int finishLatch = 0;
 
-									// 3. 積分
 									if (finishDetectedFiltered)
+									{
+										finishLatch = 4;
+									}
+									else if (finishLatch > 0)
+									{
+										finishLatch--;
+									}
+
+									bool finishEffective = (finishLatch > 0);
+
+									// 4. score
+									if (finishEffective)
 										finishCounter += 2;
 									else
 										finishCounter -= 1;

@@ -17,6 +17,6 @@
 
 
 void getLineVectorsFeature(Pixy2SPI_SS &pixy, LineVectors &lv, bool *finishDetected);
-
+void getLineVectorsFeature(Pixy2SPI_SS &pixy, LineVectors &lv);
 
 #endif /* POPCYCLE_GETLINEVECTORSFEATURE_H_ */
